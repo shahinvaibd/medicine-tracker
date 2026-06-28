@@ -61,11 +61,13 @@ td{padding:9px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
 
 <header>
   <div style="font-size:22px">💊</div>
-  <div>
+  <div style="flex:1">
     <h1>মেডিসিন ব্যবসা ট্র্যাকার</h1>
     <div id="today-date" style="font-size:12px;opacity:0.85;margin-top:2px"></div>
   </div>
+  <div id="sync-badge" style="display:none;background:#ff6f00;color:#fff;font-size:11px;padding:3px 8px;border-radius:20px;white-space:nowrap"></div>
 </header>
+<div id="sync-msg" class="msg" style="margin:8px 12px 0;display:none"></div>
 
 <div class="tab-bar">
   <button class="tab active" onclick="showTab('stock',this)">📦 স্টক</button>
@@ -160,6 +162,24 @@ const API = 'https://script.google.com/macros/s/AKfycbw9AhWqf07My1xyW7PXWiDCvIBR
 let products = [];
 let sales = [];
 let loading = false;
+let offlineQueue = JSON.parse(localStorage.getItem('offlineQueue')||'[]');
+
+function isOnline(){ return navigator.onLine; }
+
+function saveQueue(){ localStorage.setItem('offlineQueue', JSON.stringify(offlineQueue)); }
+function saveLocal(){ localStorage.setItem('med_local_products', JSON.stringify(products)); localStorage.setItem('med_local_sales', JSON.stringify(sales)); }
+function loadLocal(){ products = JSON.parse(localStorage.getItem('med_local_products')||'[]'); sales = JSON.parse(localStorage.getItem('med_local_sales')||'[]'); }
+
+function updateSyncBadge(){
+  const badge = document.getElementById('sync-badge');
+  if(!badge) return;
+  if(offlineQueue.length > 0){
+    badge.style.display='inline-block';
+    badge.textContent = offlineQueue.length + 'টি pending';
+  } else {
+    badge.style.display='none';
+  }
+}
 
 // ---- API CALLS ----
 async function apiGet(){
@@ -167,6 +187,7 @@ async function apiGet(){
   const data = await res.json();
   products = data.products || [];
   sales = data.sales || [];
+  saveLocal();
 }
 
 async function apiPost(body){
@@ -175,31 +196,75 @@ async function apiPost(body){
   if(action === 'saveProducts') url += '&products=' + encodeURIComponent(JSON.stringify(body.products));
   if(action === 'addSale')      url += '&sale='     + encodeURIComponent(JSON.stringify(body.sale));
   if(action === 'deleteProduct')url += '&id='       + body.id;
-  await fetch(url);
-}
 
-function setLoading(on, btnId){
-  loading = on;
-  if(btnId){
-    const btn = document.getElementById(btnId);
-    if(btn) btn.disabled = on;
+  if(!isOnline()){
+    offlineQueue.push(body);
+    saveQueue();
+    updateSyncBadge();
+    return;
+  }
+  try {
+    await fetch(url);
+  } catch(e){
+    offlineQueue.push(body);
+    saveQueue();
+    updateSyncBadge();
   }
 }
 
+async function syncQueue(){
+  if(!isOnline() || offlineQueue.length === 0) return;
+  const queue = [...offlineQueue];
+  offlineQueue = [];
+  saveQueue();
+  for(const body of queue){
+    try {
+      const action = body.action;
+      let url = API + '?action=' + action;
+      if(action === 'saveProducts') url += '&products=' + encodeURIComponent(JSON.stringify(body.products));
+      if(action === 'addSale')      url += '&sale='     + encodeURIComponent(JSON.stringify(body.sale));
+      if(action === 'deleteProduct')url += '&id='       + body.id;
+      await fetch(url);
+    } catch(e){
+      offlineQueue.push(body);
+    }
+  }
+  saveQueue();
+  updateSyncBadge();
+  if(offlineQueue.length === 0){
+    showMsg('sync-msg', 'সব তথ্য sync হয়েছে ✓', 'success');
+    await apiGet();
+    renderStock();
+  }
+}
+
+// sync when back online
+window.addEventListener('online', ()=>{
+  showMsg('sync-msg','ইন্টারনেট সংযোগ পাওয়া গেছে, sync হচ্ছে...','success');
+  setTimeout(syncQueue, 1000);
+});
+
 // ---- INIT ----
 async function init(){
-  // show today's date
   const d = new Date();
   const days = ['রবিবার','সোমবার','মঙ্গলবার','বুধবার','বৃহস্পতিবার','শুক্রবার','শনিবার'];
   const months = ['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'];
   document.getElementById('today-date').textContent = `${days[d.getDay()]}, ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
   document.body.innerHTML += `<div id="loader" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,0.85);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999;font-size:15px;color:#1565c0"><div style="font-size:32px;margin-bottom:12px">⏳</div>তথ্য লোড হচ্ছে...</div>`;
-  try {
-    await apiGet();
-  } catch(e){
-    alert('ইন্টারনেট সংযোগ চেক করো এবং আবার চেষ্টা করো।');
+  
+  if(isOnline()){
+    try {
+      await apiGet();
+      await syncQueue();
+    } catch(e){
+      loadLocal();
+    }
+  } else {
+    loadLocal();
   }
+  
   document.getElementById('loader').remove();
+  updateSyncBadge();
   renderStock();
   addSaleRow();
 }
