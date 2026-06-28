@@ -203,13 +203,12 @@ async function apiPost(body){
     updateSyncBadge();
     return;
   }
-  try {
-    await fetch(url);
-  } catch(e){
+  // fire and forget — UI দেরি করবে না
+  fetch(url).catch(()=>{
     offlineQueue.push(body);
     saveQueue();
     updateSyncBadge();
-  }
+  });
 }
 
 async function syncQueue(){
@@ -308,12 +307,12 @@ async function addProduct(){
     products[existing].buyPrice=buy;
     products[existing].sellPrice=sell;
     products[existing].minQty=min;
-    await apiPost({action:'saveProducts', products});
+    apiPost({action:'saveProducts', products});
     showMsg('stock-msg',name+' এর স্টক আপডেট হয়েছে ✓','success');
   } else {
     const newP={id:Date.now(),name,buyPrice:buy,sellPrice:sell,qty,unit,minQty:min};
     products.push(newP);
-    await apiPost({action:'saveProducts', products});
+    apiPost({action:'saveProducts', products});
     showMsg('stock-msg',name+' সফলভাবে যোগ হয়েছে ✓','success');
   }
 
@@ -486,7 +485,8 @@ async function recordSale(){
   const sale={id:Date.now(),date:new Date().toISOString(),buyer,items};
   items.forEach(item=>{const p=products.find(pr=>pr.id===item.productId);if(p)p.qty-=item.qty;});
   sales.push(sale);
-  await apiPost({action:'addSale', sale});
+  saveLocal();
+  apiPost({action:'addSale', sale});
 
   btn.textContent='✅ বিক্রয় সংরক্ষণ করো'; btn.disabled=false;
   showMsg('sale-msg','বিক্রয় সফলভাবে সংরক্ষিত হয়েছে ✓','success');
