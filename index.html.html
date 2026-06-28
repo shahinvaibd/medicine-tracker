@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>মেডিসিন ব্যবসা ট্র্যাকার</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:sans-serif;background:#f5f5f5;color:#1a1a1a;font-size:15px}
+header{background:#1565c0;color:#fff;padding:14px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:100}
+header h1{font-size:17px;font-weight:600}
+.tab-bar{display:flex;background:#fff;border-bottom:1px solid #e0e0e0;position:sticky;top:52px;z-index:99}
+.tab{flex:1;padding:12px 4px;text-align:center;font-size:13px;font-weight:500;color:#666;border:none;background:none;cursor:pointer;border-bottom:3px solid transparent}
+.tab.active{color:#1565c0;border-bottom-color:#1565c0}
+.section{display:none;padding:12px}
+.section.active{display:block}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.grid4{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px}
+.metric{background:#fff;border-radius:10px;padding:12px;border:1px solid #e0e0e0}
+.metric-label{font-size:11px;color:#888;margin-bottom:4px}
+.metric-val{font-size:20px;font-weight:600;color:#1a1a1a}
+.metric-val.green{color:#2e7d32}
+.metric-val.red{color:#c62828}
+.card{background:#fff;border-radius:10px;padding:14px;margin-bottom:12px;border:1px solid #e0e0e0}
+.card h3{font-size:14px;font-weight:600;color:#444;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #f0f0f0}
+input,select{width:100%;padding:10px 12px;font-size:14px;border:1px solid #ddd;border-radius:8px;background:#fafafa;color:#1a1a1a;margin-bottom:8px;-webkit-appearance:none}
+input:focus,select:focus{outline:none;border-color:#1565c0;background:#fff}
+.row{display:grid;gap:8px;margin-bottom:0}
+.row.c2{grid-template-columns:1fr 1fr}
+.row.c3{grid-template-columns:1fr 1fr 1fr}
+.row input,.row select{margin-bottom:8px}
+button.primary{width:100%;padding:12px;font-size:15px;font-weight:600;border:none;border-radius:8px;background:#1565c0;color:#fff;cursor:pointer;margin-top:4px}
+button.primary:active{background:#0d47a1}
+button.sm{padding:5px 10px;font-size:12px;border:1px solid #ddd;border-radius:6px;background:#fff;color:#555;cursor:pointer}
+button.sm.danger{border-color:#ef9a9a;color:#c62828;background:#fff8f8}
+button.sm.add-row{border-color:#90caf9;color:#1565c0;background:#e3f2fd;margin:4px 0 12px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:8px 6px;color:#888;font-weight:500;border-bottom:1px solid #eee;font-size:12px}
+td{padding:9px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:middle}
+.badge{display:inline-block;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.badge.ok{background:#e8f5e9;color:#2e7d32}
+.badge.low{background:#fff8e1;color:#f57f17}
+.badge.out{background:#ffebee;color:#c62828}
+.empty{text-align:center;padding:28px 16px;color:#aaa;font-size:13px}
+.msg{padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:10px;display:none;font-weight:500}
+.msg.success{background:#e8f5e9;color:#2e7d32;display:block}
+.msg.error{background:#ffebee;color:#c62828;display:block}
+.sale-item{background:#f9f9f9;border-radius:8px;padding:10px;margin-bottom:8px;border:1px solid #eee;position:relative}
+.sale-item-header{font-size:12px;color:#888;margin-bottom:6px}
+.remove-item{position:absolute;top:8px;right:8px;background:none;border:none;color:#aaa;font-size:18px;cursor:pointer;line-height:1}
+.filter-btn{padding:6px 14px;font-size:13px;border:1px solid #ddd;border-radius:20px;background:#fff;color:#555;cursor:pointer}
+.filter-btn.active{background:#1565c0;color:#fff;border-color:#1565c0}
+.day-header{display:flex;justify-content:space-between;font-size:13px;font-weight:600;padding:8px 10px;background:#f5f5f5;border-radius:6px;margin-bottom:4px}
+.day-row{font-size:12px;padding:5px 10px;color:#555;border-bottom:1px solid #f0f0f0}
+.profit-text{color:#2e7d32;font-weight:600}
+.total-bar{display:flex;gap:16px;padding:10px;background:#e3f2fd;border-radius:8px;margin-bottom:10px;font-size:13px}
+.total-bar span{color:#1565c0;font-weight:600}
+</style>
+</head>
+<body>
+
+<header>
+  <div style="font-size:22px">💊</div>
+  <div>
+    <h1>মেডিসিন ব্যবসা ট্র্যাকার</h1>
+    <div id="today-date" style="font-size:12px;opacity:0.85;margin-top:2px"></div>
+  </div>
+</header>
+
+<div class="tab-bar">
+  <button class="tab active" onclick="showTab('stock',this)">📦 স্টক</button>
+  <button class="tab" onclick="showTab('sale',this)">🛒 বিক্রয়</button>
+  <button class="tab" onclick="showTab('report',this)">📊 রিপোর্ট</button>
+</div>
+
+<!-- STOCK TAB -->
+<div id="tab-stock" class="section active">
+  <div class="grid4" id="stock-metrics">
+    <div class="metric"><div class="metric-label">মোট প্রোডাক্ট</div><div class="metric-val" id="m-total">0</div></div>
+    <div class="metric"><div class="metric-label">মজুদ মূল্য</div><div class="metric-val" id="m-stockval">৳0</div></div>
+    <div class="metric"><div class="metric-label">কম স্টক</div><div class="metric-val red" id="m-low">0</div></div>
+    <div class="metric"><div class="metric-label">শেষ হয়েছে</div><div class="metric-val red" id="m-out">0</div></div>
+  </div>
+
+  <div class="card">
+    <h3>➕ নতুন প্রোডাক্ট / স্টক যোগ করো</h3>
+    <div id="stock-msg" class="msg"></div>
+    <input id="p-name" placeholder="প্রোডাক্টের নাম (যেমন: Napa 500mg)">
+    <div class="row c2">
+      <input id="p-buy" type="number" placeholder="ক্রয় মূল্য (৳)" min="0" step="0.01">
+      <input id="p-sell" type="number" placeholder="বিক্রয় মূল্য (৳)" min="0" step="0.01">
+    </div>
+    <div class="row c2">
+      <input id="p-qty" type="number" placeholder="পরিমাণ" min="0">
+      <input id="p-unit" placeholder="একক (পিস/বাক্স/পাতা)">
+    </div>
+    <input id="p-min" type="number" placeholder="সর্বনিম্ন স্টক সতর্কতা (যেমন: 10)" min="0">
+    <button class="primary" onclick="addProduct()">প্রোডাক্ট যোগ করো</button>
+  </div>
+
+  <div class="card">
+    <h3>📋 স্টক তালিকা</h3>
+    <div id="stock-table"></div>
+  </div>
+</div>
+
+<!-- SALE TAB -->
+<div id="tab-sale" class="section">
+  <div class="card">
+    <h3>🛒 বিক্রয় এন্ট্রি</h3>
+    <div id="sale-msg" class="msg"></div>
+    <input id="s-buyer" placeholder="ফার্মেসির নাম বা ক্রেতা">
+    <div id="sale-items"></div>
+    <button class="sm add-row" onclick="addSaleRow()">➕ আরেকটি প্রোডাক্ট যোগ করো</button>
+    <div class="total-bar" id="sale-total" style="display:none">
+      মোট বিক্রয়: <span id="st-total">৳0</span> | লাভ: <span id="st-profit" class="profit-text">৳0</span>
+    </div>
+    <button class="primary" onclick="recordSale()">✅ বিক্রয় সংরক্ষণ করো</button>
+  </div>
+
+  <div class="card">
+    <h3>📅 আজকের বিক্রয়</h3>
+    <div id="today-sales"></div>
+  </div>
+</div>
+
+<!-- REPORT TAB -->
+<div id="tab-report" class="section">
+  <div class="grid2">
+    <div class="metric"><div class="metric-label">আজকের বিক্রয়</div><div class="metric-val green" id="r-today-sale">৳0</div></div>
+    <div class="metric"><div class="metric-label">আজকের লাভ</div><div class="metric-val green" id="r-today-profit">৳0</div></div>
+    <div class="metric"><div class="metric-label">মাসিক বিক্রয়</div><div class="metric-val" id="r-month-sale">৳0</div></div>
+    <div class="metric"><div class="metric-label">মাসিক লাভ</div><div class="metric-val green" id="r-month-profit">৳0</div></div>
+    <div class="metric"><div class="metric-label">বার্ষিক বিক্রয়</div><div class="metric-val" id="r-year-sale">৳0</div></div>
+    <div class="metric"><div class="metric-label">বার্ষিক লাভ</div><div class="metric-val green" id="r-year-profit">৳0</div></div>
+  </div>
+
+  <div class="card">
+    <h3>🏆 সবচেয়ে বেশি বিক্রি (টপ ৫)</h3>
+    <div id="top-products"></div>
+  </div>
+
+  <div class="card">
+    <h3>📜 বিক্রয় ইতিহাস</h3>
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <button class="filter-btn active" onclick="setFilter('all',this)">সব</button>
+      <button class="filter-btn" onclick="setFilter('today',this)">আজ</button>
+      <button class="filter-btn" onclick="setFilter('month',this)">এই মাস</button>
+      <button class="filter-btn" onclick="setFilter('year',this)">এই বছর</button>
+    </div>
+    <div id="all-sales"></div>
+  </div>
+</div>
+
+<script>
+
+
+const API = 'https://script.google.com/macros/s/AKfycbwOELTThDb6iItF8zdlQ8caefsjuQjqKSIgLgU27Jp-01GggnwQAZIqLCv4F9FDRnbnWQ/exec';
+
+let products = [];
+let sales = [];
+let loading = false;
+
+// ---- API CALLS ----
+async function apiGet(){
+  const res = await fetch(API + '?action=getAll');
+  const data = await res.json();
+  products = data.products || [];
+  sales = data.sales || [];
+}
+
+async function apiPost(body){
+  const action = body.action;
+  let url = API + '?action=' + action;
+  if(action === 'saveProducts') url += '&products=' + encodeURIComponent(JSON.stringify(body.products));
+  if(action === 'addSale')      url += '&sale='     + encodeURIComponent(JSON.stringify(body.sale));
+  if(action === 'deleteProduct')url += '&id='       + body.id;
+  await fetch(url);
+}
+
+function setLoading(on, btnId){
+  loading = on;
+  if(btnId){
+    const btn = document.getElementById(btnId);
+    if(btn) btn.disabled = on;
+  }
+}
+
+// ---- INIT ----
+async function init(){
+  // show today's date
+  const d = new Date();
+  const days = ['রবিবার','সোমবার','মঙ্গলবার','বুধবার','বৃহস্পতিবার','শুক্রবার','শনিবার'];
+  const months = ['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'];
+  document.getElementById('today-date').textContent = `${days[d.getDay()]}, ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+  document.body.innerHTML += `<div id="loader" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,0.85);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999;font-size:15px;color:#1565c0"><div style="font-size:32px;margin-bottom:12px">⏳</div>তথ্য লোড হচ্ছে...</div>`;
+  try {
+    await apiGet();
+  } catch(e){
+    alert('ইন্টারনেট সংযোগ চেক করো এবং আবার চেষ্টা করো।');
+  }
+  document.getElementById('loader').remove();
+  renderStock();
+  addSaleRow();
+}
+
+// ---- UI HELPERS ----
+function showMsg(id, text, type){
+  const el=document.getElementById(id);
+  el.className='msg '+type;
+  el.textContent=text;
+  setTimeout(()=>{el.className='msg';el.textContent=''},3500);
+}
+
+function fmt(n){return '৳'+Math.round(n).toLocaleString('en-IN')}
+
+function showTab(t, btn){
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.getElementById('tab-'+t).classList.add('active');
+  btn.classList.add('active');
+  if(t==='report') renderReport();
+  if(t==='sale'){renderSaleDropdowns(); renderTodaySales();}
+  if(t==='stock') renderStock();
+}
+
+// ---- STOCK ----
+async function addProduct(){
+  const name=document.getElementById('p-name').value.trim();
+  const buy=parseFloat(document.getElementById('p-buy').value);
+  const sell=parseFloat(document.getElementById('p-sell').value);
+  const qty=parseInt(document.getElementById('p-qty').value);
+  const unit=document.getElementById('p-unit').value.trim()||'পিস';
+  const min=parseInt(document.getElementById('p-min').value)||5;
+  if(!name||isNaN(buy)||isNaN(sell)||isNaN(qty)){showMsg('stock-msg','সব তথ্য সঠিকভাবে পূরণ করো','error');return;}
+
+  const btn = document.querySelector('#tab-stock .primary');
+  btn.textContent='সেভ হচ্ছে...'; btn.disabled=true;
+
+  const existing=products.findIndex(p=>p.name.toLowerCase()===name.toLowerCase());
+  if(existing>=0){
+    products[existing].qty+=qty;
+    products[existing].buyPrice=buy;
+    products[existing].sellPrice=sell;
+    products[existing].minQty=min;
+    await apiPost({action:'saveProducts', products});
+    showMsg('stock-msg',name+' এর স্টক আপডেট হয়েছে ✓','success');
+  } else {
+    const newP={id:Date.now(),name,buyPrice:buy,sellPrice:sell,qty,unit,minQty:min};
+    products.push(newP);
+    await apiPost({action:'saveProducts', products});
+    showMsg('stock-msg',name+' সফলভাবে যোগ হয়েছে ✓','success');
+  }
+
+  btn.textContent='প্রোডাক্ট যোগ করো'; btn.disabled=false;
+  ['p-name','p-buy','p-sell','p-qty','p-unit','p-min'].forEach(id=>{document.getElementById(id).value='';});
+  renderStock();
+}
+
+function renderStock(){
+  updateMetrics();
+  const tb=document.getElementById('stock-table');
+  if(!products.length){tb.innerHTML='<div class="empty">এখনো কোনো প্রোডাক্ট যোগ করা হয়নি</div>';return;}
+  const rows=products.map(p=>{
+    const profit=p.buyPrice>0?((p.sellPrice-p.buyPrice)/p.buyPrice*100).toFixed(0):'0';
+    const status=p.qty===0?'<span class="badge out">শেষ</span>':p.qty<=p.minQty?'<span class="badge low">কম</span>':'<span class="badge ok">আছে</span>';
+    return`<tr>
+      <td><strong>${p.name}</strong><br><span style="font-size:11px;color:#888">${fmt(p.buyPrice)} → ${fmt(p.sellPrice)} | লাভ ${profit}%</span></td>
+      <td style="text-align:center">${p.qty}<br><span style="font-size:11px;color:#888">${p.unit}</span></td>
+      <td>${status}</td>
+      <td><button class="sm danger del-prod" data-id="${p.id}">মুছো</button></td>
+    </tr>`;
+  }).join('');
+  tb.innerHTML='<table><thead><tr><th>প্রোডাক্ট</th><th style="text-align:center">স্টক</th><th>অবস্থা</th><th></th></tr></thead><tbody>'+rows+'</tbody></table>';
+}
+
+async function deleteProduct(id){
+  id=parseInt(id);
+  if(!confirm('এই প্রোডাক্ট মুছে ফেলবে?'))return;
+  products=products.filter(p=>p.id!==id);
+  await apiPost({action:'deleteProduct', id});
+  renderStock();
+}
+
+document.addEventListener('click',function(e){
+  if(e.target.classList.contains('del-prod')){
+    deleteProduct(e.target.getAttribute('data-id'));
+  }
+});
+
+function updateMetrics(){
+  document.getElementById('m-total').textContent=products.length;
+  document.getElementById('m-stockval').textContent=fmt(products.reduce((s,p)=>s+p.buyPrice*p.qty,0));
+  document.getElementById('m-low').textContent=products.filter(p=>p.qty>0&&p.qty<=p.minQty).length;
+  document.getElementById('m-out').textContent=products.filter(p=>p.qty===0).length;
+}
+
+// ---- SALE ----
+function renderSaleDropdowns(){
+  // no-op, search boxes handle themselves
+}
+
+function addSaleRow(){
+  const div=document.createElement('div');
+  div.className='sale-item';
+  const uid='sr'+Date.now();
+  div.innerHTML=`
+    <div class="sale-item-header">প্রোডাক্ট ${document.querySelectorAll('.sale-item').length+1}</div>
+    <button class="remove-item" onclick="this.parentElement.remove();calcSaleTotal()">×</button>
+    <div style="position:relative;margin-bottom:8px">
+      <input class="s-search" placeholder="🔍 প্রোডাক্টের নাম লিখে খোঁজো..." autocomplete="off"
+        oninput="filterProducts(this)"
+        onfocus="showDropdown(this)"
+        onblur="setTimeout(()=>hideDropdown(this),200)">
+      <div class="s-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #ddd;border-radius:8px;z-index:50;max-height:180px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,0.1)"></div>
+      <input class="s-prod-id" type="hidden" value="">
+    </div>
+    <div class="row c2">
+      <input class="s-qty" type="number" placeholder="পরিমাণ" min="1" oninput="calcSaleTotal()">
+      <input class="s-price" type="number" placeholder="বিক্রয় মূল্য" oninput="calcSaleTotal()">
+    </div>
+    <div class="s-info" style="font-size:12px;color:#888;margin-top:-4px"></div>
+  `;
+  document.getElementById('sale-items').appendChild(div);
+}
+
+function filterProducts(input){
+  const row=input.closest('.sale-item');
+  const dd=row.querySelector('.s-dropdown');
+  const q=input.value.toLowerCase().trim();
+  const filtered=q?products.filter(p=>p.name.toLowerCase().includes(q)):products;
+  renderDropdown(dd, filtered, row);
+  dd.style.display='block';
+  // clear selection if user is typing
+  row.querySelector('.s-prod-id').value='';
+  row.querySelector('.s-info').textContent='';
+  row.querySelector('.s-price').value='';
+  calcSaleTotal();
+}
+
+function showDropdown(input){
+  const row=input.closest('.sale-item');
+  const dd=row.querySelector('.s-dropdown');
+  const q=input.value.toLowerCase().trim();
+  const filtered=q?products.filter(p=>p.name.toLowerCase().includes(q)):products;
+  renderDropdown(dd, filtered, row);
+  dd.style.display='block';
+}
+
+function hideDropdown(input){
+  const dd=input.closest('.sale-item').querySelector('.s-dropdown');
+  dd.style.display='none';
+}
+
+function renderDropdown(dd, list, row){
+  if(!list.length){
+    dd.innerHTML='<div style="padding:10px;color:#aaa;font-size:13px">পাওয়া যায়নি</div>';
+    return;
+  }
+  dd.innerHTML=list.map(p=>`
+    <div class="dd-item" data-id="${p.id}" data-buy="${p.buyPrice}" data-sell="${p.sellPrice}" data-name="${p.name}" data-stock="${p.qty}" data-unit="${p.unit}"
+      style="padding:10px 12px;cursor:pointer;border-bottom:1px solid #f5f5f5;font-size:14px"
+      onmousedown="selectProduct(this)">
+      <div>${p.name}</div>
+      <div style="font-size:11px;color:#888">স্টক: ${p.qty} ${p.unit} | বিক্রয়: ${fmt(p.sellPrice)}</div>
+    </div>`).join('');
+}
+
+function selectProduct(item){
+  const row=item.closest('.sale-item');
+  row.querySelector('.s-search').value=item.dataset.name;
+  row.querySelector('.s-prod-id').value=item.dataset.id;
+  row.querySelector('.s-price').value=item.dataset.sell;
+  row.querySelector('.s-info').textContent=`ক্রয়মূল্য: ${fmt(item.dataset.buy)} | বিক্রয়মূল্য: ${fmt(item.dataset.sell)} | স্টক: ${item.dataset.stock} ${item.dataset.unit}`;
+  row.querySelector('.s-dropdown').style.display='none';
+  calcSaleTotal();
+}
+
+function calcSaleTotal(){
+  let total=0,profit=0;
+  document.querySelectorAll('.sale-item').forEach(row=>{
+    const pid=row.querySelector('.s-prod-id').value;
+    const qty=parseFloat(row.querySelector('.s-qty').value)||0;
+    const price=parseFloat(row.querySelector('.s-price').value)||0;
+    if(pid&&qty&&price){
+      const prod=products.find(p=>p.id==pid);
+      total+=price*qty;
+      if(prod) profit+=(price-prod.buyPrice)*qty;
+    }
+  });
+  if(total>0){
+    document.getElementById('sale-total').style.display='flex';
+    document.getElementById('st-total').textContent=fmt(total);
+    document.getElementById('st-profit').textContent=fmt(profit);
+  } else {
+    document.getElementById('sale-total').style.display='none';
+  }
+}
+
+async function recordSale(){
+  const buyer=document.getElementById('s-buyer').value.trim();
+  if(!buyer){showMsg('sale-msg','ফার্মেসির নাম বা ক্রেতার নাম দাও','error');return;}
+  const items=[];
+  let valid=true;
+  document.querySelectorAll('.sale-item').forEach(row=>{
+    const pid=parseInt(row.querySelector('.s-prod-id').value);
+    const qty=parseInt(row.querySelector('.s-qty').value);
+    const price=parseFloat(row.querySelector('.s-price').value);
+    if(!pid||!qty||!price){valid=false;return;}
+    const prod=products.find(p=>p.id===pid);
+    if(!prod){showMsg('sale-msg','প্রোডাক্ট সঠিকভাবে বাছাই করো','error');valid=false;return;}
+    if(prod.qty<qty){showMsg('sale-msg',prod.name+' এর স্টক কম আছে (আছে: '+prod.qty+')','error');valid=false;return;}
+    items.push({productId:pid,name:prod.name,qty,sellPrice:price,buyPrice:prod.buyPrice,unit:prod.unit});
+  });
+  if(!valid) return;
+  if(!items.length){showMsg('sale-msg','কমপক্ষে একটি প্রোডাক্ট যোগ করো','error');return;}
+
+  const btn=document.querySelector('#tab-sale .primary');
+  btn.textContent='সেভ হচ্ছে...'; btn.disabled=true;
+
+  const sale={id:Date.now(),date:new Date().toISOString(),buyer,items};
+  items.forEach(item=>{const p=products.find(pr=>pr.id===item.productId);if(p)p.qty-=item.qty;});
+  sales.push(sale);
+  await apiPost({action:'addSale', sale});
+
+  btn.textContent='✅ বিক্রয় সংরক্ষণ করো'; btn.disabled=false;
+  showMsg('sale-msg','বিক্রয় সফলভাবে সংরক্ষিত হয়েছে ✓','success');
+  document.getElementById('s-buyer').value='';
+  document.getElementById('sale-items').innerHTML='';
+  document.getElementById('sale-total').style.display='none';
+  addSaleRow();
+  renderTodaySales();
+  updateMetrics();
+}
+
+function renderTodaySales(){
+  const today=new Date().toDateString();
+  const todaySales=sales.filter(s=>new Date(s.date).toDateString()===today);
+  const tb=document.getElementById('today-sales');
+  if(!todaySales.length){tb.innerHTML='<div class="empty">আজ কোনো বিক্রয় হয়নি</div>';return;}
+  let html='';
+  let dayTotal=0,dayProfit=0;
+  [...todaySales].reverse().forEach(s=>{
+    const total=s.items.reduce((sum,i)=>sum+i.sellPrice*i.qty,0);
+    const profit=s.items.reduce((sum,i)=>sum+(i.sellPrice-i.buyPrice)*i.qty,0);
+    dayTotal+=total; dayProfit+=profit;
+    const time=new Date(s.date).toLocaleTimeString('bn-BD',{hour:'2-digit',minute:'2-digit'});
+    html+=`<div style="padding:10px 0;border-bottom:1px solid #f5f5f5">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+        <strong style="font-size:14px">${s.buyer}</strong>
+        <span style="font-size:12px;color:#888">${time}</span>
+      </div>
+      <div style="font-size:12px;color:#555;margin-bottom:4px">${s.items.map(i=>i.name+' × '+i.qty+' '+i.unit).join(', ')}</div>
+      <div style="font-size:13px">বিক্রয়: <strong>${fmt(total)}</strong> | লাভ: <strong class="profit-text">${fmt(profit)}</strong></div>
+    </div>`;
+  });
+  html=`<div style="background:#e8f5e9;border-radius:8px;padding:10px;margin-bottom:10px;font-size:13px">
+    আজকের মোট — বিক্রয়: <strong>${fmt(dayTotal)}</strong> | লাভ: <strong class="profit-text">${fmt(dayProfit)}</strong>
+  </div>`+html;
+  tb.innerHTML=html;
+}
+
+// ---- REPORT ----
+let currentFilter = 'all';
+
+function setFilter(f, btn){
+  currentFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderSalesHistory();
+}
+
+function renderReport(){
+  const now = new Date();
+  const today = now.toDateString();
+
+  const todaySales  = sales.filter(s=>new Date(s.date).toDateString()===today);
+  const monthSales  = sales.filter(s=>{const d=new Date(s.date);return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();});
+  const yearSales   = sales.filter(s=>new Date(s.date).getFullYear()===now.getFullYear());
+
+  const calc = arr=>arr.reduce((a,s)=>({
+    sale:   a.sale   + s.items.reduce((x,i)=>x+i.sellPrice*i.qty,0),
+    profit: a.profit + s.items.reduce((x,i)=>x+(i.sellPrice-i.buyPrice)*i.qty,0)
+  }),{sale:0,profit:0});
+
+  const td=calc(todaySales), mn=calc(monthSales), yr=calc(yearSales);
+
+  document.getElementById('r-today-sale').textContent  = fmt(td.sale);
+  document.getElementById('r-today-profit').textContent= fmt(td.profit);
+  document.getElementById('r-month-sale').textContent  = fmt(mn.sale);
+  document.getElementById('r-month-profit').textContent= fmt(mn.profit);
+  document.getElementById('r-year-sale').textContent   = fmt(yr.sale);
+  document.getElementById('r-year-profit').textContent = fmt(yr.profit);
+
+  // top 5 products (all time)
+  const productTotals={};
+  sales.forEach(s=>s.items.forEach(i=>{
+    if(!productTotals[i.name])productTotals[i.name]={qty:0,revenue:0,profit:0};
+    productTotals[i.name].qty+=i.qty;
+    productTotals[i.name].revenue+=i.sellPrice*i.qty;
+    productTotals[i.name].profit+=(i.sellPrice-i.buyPrice)*i.qty;
+  }));
+  const sorted=Object.entries(productTotals).sort((a,b)=>b[1].revenue-a[1].revenue).slice(0,5);
+  const tp=document.getElementById('top-products');
+  if(!sorted.length){tp.innerHTML='<div class="empty">এখনো কোনো বিক্রয় নেই</div>';}
+  else{tp.innerHTML='<table><thead><tr><th>প্রোডাক্ট</th><th>বিক্রিত</th><th>আয়</th><th>লাভ</th></tr></thead><tbody>'+
+    sorted.map(([name,d])=>`<tr><td>${name}</td><td>${d.qty}</td><td>${fmt(d.revenue)}</td><td class="profit-text">${fmt(d.profit)}</td></tr>`).join('')+
+  '</tbody></table>';}
+
+  renderSalesHistory();
+}
+
+function renderSalesHistory(){
+  const now = new Date();
+  const today = now.toDateString();
+  let filtered = sales;
+  if(currentFilter==='today')  filtered = sales.filter(s=>new Date(s.date).toDateString()===today);
+  if(currentFilter==='month')  filtered = sales.filter(s=>{const d=new Date(s.date);return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();});
+  if(currentFilter==='year')   filtered = sales.filter(s=>new Date(s.date).getFullYear()===now.getFullYear());
+
+  const allSales=document.getElementById('all-sales');
+  if(!filtered.length){allSales.innerHTML='<div class="empty">এই সময়ে কোনো বিক্রয় নেই</div>';return;}
+
+  const grouped={};
+  [...filtered].reverse().forEach(s=>{
+    const d=new Date(s.date).toLocaleDateString('bn-BD',{year:'numeric',month:'long',day:'numeric'});
+    if(!grouped[d])grouped[d]=[];grouped[d].push(s);
+  });
+
+  allSales.innerHTML=Object.entries(grouped).map(([date,dayS])=>{
+    const tot=dayS.reduce((a,s)=>a+s.items.reduce((x,i)=>x+i.sellPrice*i.qty,0),0);
+    const pft=dayS.reduce((a,s)=>a+s.items.reduce((x,i)=>x+(i.sellPrice-i.buyPrice)*i.qty,0),0);
+    return`<div class="day-group">
+      <div class="day-header"><span>${date}</span><span>বিক্রয়: ${fmt(tot)} | লাভ: <span class="profit-text">${fmt(pft)}</span></span></div>
+      ${dayS.map(s=>`<div class="day-row">${s.buyer}: ${s.items.map(i=>i.name+' ×'+i.qty).join(', ')}</div>`).join('')}
+    </div>`;
+  }).join('');
+}
+
+init();
+</script>
+</body>
+</html>
