@@ -57,6 +57,8 @@ td{padding:9px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
 .day-group{margin-bottom:14px}
 .day-row{font-size:12px;padding:5px 10px;color:#555;border-bottom:1px solid #f0f0f0}
 .profit-text{color:#2e7d32;font-weight:600}
+.profit-hidden .profit-val{filter:blur(5px);user-select:none}
+#profit-toggle-btn{background:#fff3e0;color:#e65100;border-color:#ffcc80;font-weight:600}
 .total-bar{display:flex;gap:16px;padding:10px;background:#e3f2fd;border-radius:8px;margin-bottom:10px;font-size:13px;flex-wrap:wrap}
 .total-bar span{color:#1565c0;font-weight:600}
 .stars{color:#f57f17;font-size:16px}
@@ -76,7 +78,7 @@ td{padding:9px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
 .bill-total{background:#1565c0;color:#fff;padding:12px;border-radius:8px;display:flex;justify-content:space-between;font-size:16px;font-weight:700;margin-bottom:12px}
 </style>
 </head>
-<body>
+<body class="profit-hidden">
 
 <header>
   <div style="font-size:22px">💊</div>
@@ -85,6 +87,7 @@ td{padding:9px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
     <div id="today-date" style="font-size:12px;opacity:0.85;margin-top:2px"></div>
   </div>
   <div id="sync-badge" style="display:none;background:#ff6f00;color:#fff;font-size:11px;padding:3px 8px;border-radius:20px;white-space:nowrap"></div>
+  <button id="profit-toggle-btn" class="sm" onclick="toggleProfitView()" style="flex-shrink:0">👁️ লাভ</button>
 </header>
 <div id="sync-msg" class="msg" style="margin:8px 12px 0;display:none"></div>
 
@@ -136,7 +139,7 @@ td{padding:9px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
     <div id="sale-items"></div>
     <button class="sm add-row" onclick="addSaleRow()">➕ আরেকটি প্রোডাক্ট যোগ করো</button>
     <div class="total-bar" id="sale-total" style="display:none">
-      মোট বিল: <span id="st-total">৳0</span> | লাভ: <span id="st-profit" class="profit-text">৳0</span>
+      মোট বিল: <span id="st-total">৳0</span> | লাভ: <span id="st-profit" class="profit-text profit-val">৳0</span>
     </div>
     <div class="row c2">
       <input id="s-paid" type="number" placeholder="নগদ পেলাম (৳)" min="0" oninput="calcDue()">
@@ -174,11 +177,11 @@ td{padding:9px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
 <div id="tab-report" class="section">
   <div class="grid2">
     <div class="metric"><div class="metric-label">আজকের বিক্রয়</div><div class="metric-val green" id="r-today-sale">৳0</div></div>
-    <div class="metric"><div class="metric-label">আজকের লাভ</div><div class="metric-val green" id="r-today-profit">৳0</div></div>
+    <div class="metric"><div class="metric-label">আজকের লাভ</div><div class="metric-val green profit-val" id="r-today-profit">৳0</div></div>
     <div class="metric"><div class="metric-label" id="lbl-month-sale">মাসিক বিক্রয়</div><div class="metric-val" id="r-month-sale">৳0</div></div>
-    <div class="metric"><div class="metric-label" id="lbl-month-profit">মাসিক লাভ</div><div class="metric-val green" id="r-month-profit">৳0</div></div>
+    <div class="metric"><div class="metric-label" id="lbl-month-profit">মাসিক লাভ</div><div class="metric-val green profit-val" id="r-month-profit">৳0</div></div>
     <div class="metric"><div class="metric-label" id="lbl-year-sale">বার্ষিক বিক্রয়</div><div class="metric-val" id="r-year-sale">৳0</div></div>
-    <div class="metric"><div class="metric-label" id="lbl-year-profit">বার্ষিক লাভ</div><div class="metric-val green" id="r-year-profit">৳0</div></div>
+    <div class="metric"><div class="metric-label" id="lbl-year-profit">বার্ষিক লাভ</div><div class="metric-val green profit-val" id="r-year-profit">৳0</div></div>
   </div>
   <div class="card">
     <h3>⚠️ মোট বাকি (সব কাস্টমার)</h3>
@@ -225,6 +228,7 @@ td{padding:9px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
     </div>
     <div id="bill-paid-row" style="display:none;background:#f9f9f9;border-radius:8px;padding:8px 12px;margin-bottom:12px"></div>
     <div style="text-align:center;font-size:12px;color:#888;margin-bottom:16px">ধন্যবাদ আপনার ক্রয়ের জন্য</div>
+    <button class="primary green" onclick="shareBillWhatsApp()" style="margin-bottom:8px">📱 WhatsApp-এ পাঠাও</button>
     <button class="primary" onclick="closeBill()">✕ বন্ধ করো</button>
   </div>
 </div>
@@ -340,6 +344,12 @@ function showMsg(id,text,type){
   setTimeout(()=>{el.className='msg';el.textContent=''},3500);
 }
 function fmt(n){return '৳'+Math.round(n).toLocaleString('en-IN')}
+
+function toggleProfitView(){
+  document.body.classList.toggle('profit-hidden');
+  const btn=document.getElementById('profit-toggle-btn');
+  btn.textContent = document.body.classList.contains('profit-hidden') ? '👁️ লাভ' : '🙈 লুকাও';
+}
 
 function showTab(t,btn){
   document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
@@ -702,20 +712,23 @@ function renderTodaySales(){
       </div>
       <div style="font-size:12px;color:#555;margin-bottom:6px">${s.items.map(i=>i.name+' × '+i.qty+' '+i.unit).join(', ')}</div>
       <div style="display:flex;justify-content:space-between;align-items:center">
-        <span style="font-size:13px">বিল: <strong>${fmt(total)}</strong> | লাভ: <strong class="profit-text">${fmt(profit)}</strong></span>
+        <span style="font-size:13px">বিল: <strong>${fmt(total)}</strong> | লাভ: <strong class="profit-text profit-val">${fmt(profit)}</strong></span>
         <button class="sm blue show-bill" data-id="${s.id}">🧾 বিল</button>
       </div>
     </div>`;
   });
   html=`<div style="background:#e8f5e9;border-radius:8px;padding:10px;margin-bottom:10px;font-size:13px">
-    আজকের মোট — বিক্রয়: <strong>${fmt(dayTotal)}</strong> | লাভ: <strong class="profit-text">${fmt(dayProfit)}</strong>
+    আজকের মোট — বিক্রয়: <strong>${fmt(dayTotal)}</strong> | লাভ: <strong class="profit-text profit-val">${fmt(dayProfit)}</strong>
   </div>`+html;
   tb.innerHTML=html;
 }
 
 // ---- BILL ----
+let currentBillSale = null;
+
 function showBill(saleId){
   const s=sales.find(x=>String(x.id)===String(saleId)); if(!s)return;
+  currentBillSale = s;
   document.getElementById('bill-buyer').textContent=s.buyer;
   document.getElementById('bill-date').textContent=new Date(s.date).toLocaleDateString('bn-BD',{year:'numeric',month:'long',day:'numeric'});
   const total=s.items.reduce((sum,i)=>sum+i.sellPrice*i.qty,0);
@@ -736,6 +749,41 @@ function showBill(saleId){
   document.getElementById('bill-modal').classList.add('active');
 }
 function closeBill(){ document.getElementById('bill-modal').classList.remove('active'); }
+
+function shareBillWhatsApp(){
+  if(!currentBillSale){return;}
+  const s = currentBillSale;
+  const total = s.items.reduce((sum,i)=>sum+i.sellPrice*i.qty,0);
+  const due = Number(s.dueAmount||0);
+  const dateStr = new Date(s.date).toLocaleDateString('bn-BD',{year:'numeric',month:'long',day:'numeric'});
+
+  let msg = `*মেডিসিন সাপ্লায়ার - বিল*\n`;
+  msg += `তারিখ: ${dateStr}\n`;
+  msg += `ফার্মেসি: ${s.buyer}\n\n`;
+  msg += `*প্রোডাক্ট তালিকা:*\n`;
+  s.items.forEach(i=>{
+    msg += `${i.name} — ${i.qty} ${i.unit} × ${fmt(i.sellPrice)} = ${fmt(i.sellPrice*i.qty)}\n`;
+  });
+  msg += `\n*মোট বিল: ${fmt(total)}*\n`;
+  if(due>0){
+    msg += `নগদ পরিশোধ: ${fmt(s.paidAmount||0)}\n`;
+    msg += `বাকি: ${fmt(due)}\n`;
+  }
+  msg += `\nধন্যবাদ আপনার ক্রয়ের জন্য।`;
+
+  // try to find customer phone number
+  let phone = '';
+  if(s.buyerId){
+    const cust = customers.find(c => String(c.id) === String(s.buyerId));
+    if(cust && cust.phone) phone = cust.phone.replace(/[^0-9]/g,'');
+    if(phone && phone.startsWith('0')) phone = '88'+phone;
+  }
+
+  const url = phone
+    ? `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`
+    : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+  window.open(url, '_blank');
+}
 
 // ---- REPORT ----
 function setFilter(f,btn){
@@ -808,7 +856,7 @@ function renderReport(){
   const tp=document.getElementById('top-products');
   if(!topP.length) tp.innerHTML='<div class="empty">এখনো কোনো বিক্রয় নেই</div>';
   else tp.innerHTML='<table><thead><tr><th>প্রোডাক্ট</th><th>বিক্রিত</th><th>আয়</th><th>লাভ</th></tr></thead><tbody>'+
-    topP.map(([name,d])=>`<tr><td>${name}</td><td>${d.qty}</td><td>${fmt(d.revenue)}</td><td class="profit-text">${fmt(d.profit)}</td></tr>`).join('')+'</tbody></table>';
+    topP.map(([name,d])=>`<tr><td>${name}</td><td>${d.qty}</td><td>${fmt(d.revenue)}</td><td class="profit-text profit-val">${fmt(d.profit)}</td></tr>`).join('')+'</tbody></table>';
 
   renderSalesHistory();
 }
@@ -830,7 +878,7 @@ function renderSalesHistory(){
     const tot=dayS.reduce((a,s)=>a+s.items.reduce((x,i)=>x+i.sellPrice*i.qty,0),0);
     const pft=dayS.reduce((a,s)=>a+s.items.reduce((x,i)=>x+(i.sellPrice-i.buyPrice)*i.qty,0),0);
     return`<div class="day-group">
-      <div class="day-header"><span>${date}</span><span>বিক্রয়: ${fmt(tot)} | লাভ: <span class="profit-text">${fmt(pft)}</span></span></div>
+      <div class="day-header"><span>${date}</span><span>বিক্রয়: ${fmt(tot)} | লাভ: <span class="profit-text profit-val">${fmt(pft)}</span></span></div>
       ${dayS.map(s=>`<div class="day-row" style="display:flex;justify-content:space-between;align-items:center">
         <span>${s.buyer}: ${s.items.map(i=>i.name+' ×'+i.qty).join(', ')}</span>
         <button class="sm blue show-bill" data-id="${s.id}" style="flex-shrink:0;margin-left:8px">🧾</button>
