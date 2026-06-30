@@ -156,15 +156,6 @@ td{padding:9px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
       <input id="c-phone" placeholder="মোবাইল নম্বর" type="tel">
       <input id="c-address" placeholder="ঠিকানা/এলাকা">
     </div>
-    <div style="margin-bottom:8px">
-      <div style="font-size:13px;color:#666;margin-bottom:6px">রেটিং (লেনদেন কেমন)</div>
-      <div style="display:flex;gap:8px">
-        <button class="sm" id="r1" onclick="setRating(1)">⭐ খারাপ</button>
-        <button class="sm" id="r2" onclick="setRating(2)">⭐⭐ ঠিকঠাক</button>
-        <button class="sm" id="r3" onclick="setRating(3)">⭐⭐⭐ ভালো</button>
-      </div>
-    </div>
-    <input type="hidden" id="c-rating" value="0">
     <input type="hidden" id="c-edit-id" value="">
     <textarea id="c-note" placeholder="নোট (যেমন: নগদ দেয়, নিয়মিত কিনে...)"></textarea>
     <button class="primary" onclick="saveCustomer()">কাস্টমার সেভ করো</button>
@@ -397,30 +388,36 @@ function updateMetrics(){
 }
 
 // ---- CUSTOMER ----
-function setRating(r){
-  selectedRating=r;
-  document.getElementById('c-rating').value=r;
-  ['r1','r2','r3'].forEach((id,i)=>{
-    document.getElementById(id).style.background=i<r?'#fff8e1':'';
-    document.getElementById(id).style.borderColor=i<r?'#f57f17':'#ddd';
-  });
+function autoRating(cs){
+  // অটোমেটিক রেটিং — বিক্রয়ের উপর ভিত্তি করে
+  if(!cs||cs.count===0) return 0;
+  const daysSinceLast = cs.lastDate ? Math.floor((Date.now()-new Date(cs.lastDate))/(1000*60*60*24)) : 999;
+  if(cs.count>=8 && daysSinceLast<=30) return 3; // ⭐⭐⭐ ভালো
+  if(cs.count>=3 && daysSinceLast<=60) return 2; // ⭐⭐ ঠিকঠাক
+  return 1; // ⭐ খারাপ
+}
+
+function ratingLabel(r){
+  if(r===3) return '<span style="color:#2e7d32;font-size:12px;font-weight:600">⭐⭐⭐ ভালো কাস্টমার</span>';
+  if(r===2) return '<span style="color:#f57f17;font-size:12px;font-weight:600">⭐⭐ ঠিকঠাক</span>';
+  if(r===1) return '<span style="color:#c62828;font-size:12px;font-weight:600">⭐ নতুন/কম সক্রিয়</span>';
+  return '<span style="color:#aaa;font-size:12px">বিক্রয় নেই</span>';
 }
 
 function saveCustomer(){
   const name=document.getElementById('c-name').value.trim();
   const phone=document.getElementById('c-phone').value.trim();
   const address=document.getElementById('c-address').value.trim();
-  const rating=parseInt(document.getElementById('c-rating').value)||0;
   const note=document.getElementById('c-note').value.trim();
   const editId=document.getElementById('c-edit-id').value;
   if(!name){showMsg('customer-msg','ফার্মেসির নাম দাও','error');return;}
-  const customer={id:editId?parseInt(editId):Date.now(),name,phone,address,rating,note,createdAt:new Date().toISOString()};
+  const customer={id:editId?parseInt(editId):Date.now(),name,phone,address,note,createdAt:new Date().toISOString()};
   const ex=customers.findIndex(c=>c.id===customer.id);
   if(ex>=0) customers[ex]=customer; else customers.push(customer);
   apiPost({action:'saveCustomer',customer}); saveLocal();
   showMsg('customer-msg',name+' সেভ হয়েছে ✓','success');
   ['c-name','c-phone','c-address','c-note'].forEach(id=>{document.getElementById(id).value='';});
-  document.getElementById('c-edit-id').value=''; setRating(0);
+  document.getElementById('c-edit-id').value='';
   renderCustomers(); renderCustomerDropdown();
 }
 
@@ -431,7 +428,6 @@ function editCustomer(id){
   document.getElementById('c-address').value=c.address||'';
   document.getElementById('c-note').value=c.note||'';
   document.getElementById('c-edit-id').value=c.id;
-  setRating(c.rating||0);
   document.querySelector('#tab-customer .card').scrollIntoView({behavior:'smooth'});
 }
 
@@ -447,34 +443,35 @@ function renderCustomers(){
   if(!customers.length){el.innerHTML='<div class="empty">এখনো কোনো ফার্মেসি যোগ করা হয়নি</div>';return;}
   const custSales={};
   sales.forEach(s=>{
-    if(!s.buyerId)return;
-    if(!custSales[s.buyerId])custSales[s.buyerId]={total:0,count:0,lastDate:''};
-    const t=s.items.reduce((a,i)=>a+i.sellPrice*i.qty,0);
-    custSales[s.buyerId].total+=t; custSales[s.buyerId].count++;
-    if(s.date>custSales[s.buyerId].lastDate) custSales[s.buyerId].lastDate=s.date;
+    const key=s.buyerId||s.buyer; if(!key)return;
+    if(!custSales[key])custSales[key]={total:0,count:0,lastDate:''};
+    custSales[key].total+=s.items.reduce((a,i)=>a+i.sellPrice*i.qty,0);
+    custSales[key].count++;
+    if(s.date>custSales[key].lastDate) custSales[key].lastDate=s.date;
   });
   const sorted=[...customers].sort((a,b)=>(custSales[b.id]?.total||0)-(custSales[a.id]?.total||0));
   el.innerHTML=sorted.map(c=>{
     const cs=custSales[c.id]||{total:0,count:0,lastDate:''};
-    const stars='⭐'.repeat(c.rating||0);
-    const lastD=cs.lastDate?new Date(cs.lastDate).toLocaleDateString('bn-BD'):'কোনো বিক্রয় নেই';
+    const rating=autoRating(cs);
+    const lastD=cs.lastDate?new Date(cs.lastDate).toLocaleDateString('bn-BD'):'বিক্রয় নেই';
+    const daysSince=cs.lastDate?Math.floor((Date.now()-new Date(cs.lastDate))/(1000*60*60*24)):null;
     return`<div class="customer-card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
-        <div>
+        <div style="flex:1">
           <div class="customer-name">${c.name}</div>
-          <div class="customer-meta">${c.phone?'📞 '+c.phone+' | ':''} ${c.address?'📍 '+c.address:''}</div>
-          ${stars?`<div class="stars" style="margin-bottom:4px">${stars}</div>`:''}
+          <div class="customer-meta">${c.phone?'📞 '+c.phone:''}${c.phone&&c.address?' | ':''}${c.address?'📍 '+c.address:''}</div>
+          <div style="margin-bottom:6px">${ratingLabel(rating)}</div>
           ${c.note?`<div style="font-size:12px;color:#666;margin-bottom:6px">📝 ${c.note}</div>`:''}
         </div>
-        <div style="display:flex;gap:6px">
+        <div style="display:flex;gap:6px;flex-shrink:0">
           <button class="sm blue edit-cust" data-id="${c.id}">✏️</button>
           <button class="sm danger del-cust" data-id="${c.id}">🗑️</button>
         </div>
       </div>
-      <div style="display:flex;gap:12px;font-size:12px;padding-top:8px;border-top:1px solid #f0f0f0;flex-wrap:wrap">
-        <span>মোট কেনা: <strong>${fmt(cs.total)}</strong></span>
-        <span>বারের সংখ্যা: <strong>${cs.count}বার</strong></span>
-        <span>সর্বশেষ: <strong>${lastD}</strong></span>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding-top:8px;border-top:1px solid #f0f0f0;font-size:12px;text-align:center">
+        <div><div style="color:#888">মোট কেনা</div><strong>${fmt(cs.total)}</strong></div>
+        <div><div style="color:#888">বারের সংখ্যা</div><strong>${cs.count}বার</strong></div>
+        <div><div style="color:#888">সর্বশেষ</div><strong>${daysSince!==null?daysSince+'দিন আগে':'—'}</strong></div>
       </div>
     </div>`;
   }).join('');
