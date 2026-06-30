@@ -171,10 +171,10 @@ td{padding:9px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
   <div class="grid2">
     <div class="metric"><div class="metric-label">আজকের বিক্রয়</div><div class="metric-val green" id="r-today-sale">৳0</div></div>
     <div class="metric"><div class="metric-label">আজকের লাভ</div><div class="metric-val green" id="r-today-profit">৳0</div></div>
-    <div class="metric"><div class="metric-label">মাসিক বিক্রয়</div><div class="metric-val" id="r-month-sale">৳0</div></div>
-    <div class="metric"><div class="metric-label">মাসিক লাভ</div><div class="metric-val green" id="r-month-profit">৳0</div></div>
-    <div class="metric"><div class="metric-label">বার্ষিক বিক্রয়</div><div class="metric-val" id="r-year-sale">৳0</div></div>
-    <div class="metric"><div class="metric-label">বার্ষিক লাভ</div><div class="metric-val green" id="r-year-profit">৳0</div></div>
+    <div class="metric"><div class="metric-label" id="lbl-month-sale">মাসিক বিক্রয়</div><div class="metric-val" id="r-month-sale">৳0</div></div>
+    <div class="metric"><div class="metric-label" id="lbl-month-profit">মাসিক লাভ</div><div class="metric-val green" id="r-month-profit">৳0</div></div>
+    <div class="metric"><div class="metric-label" id="lbl-year-sale">বার্ষিক বিক্রয়</div><div class="metric-val" id="r-year-sale">৳0</div></div>
+    <div class="metric"><div class="metric-label" id="lbl-year-profit">বার্ষিক লাভ</div><div class="metric-val green" id="r-year-profit">৳0</div></div>
   </div>
   <div class="card">
     <h3>🏆 সেরা কাস্টমার (মোট কেনা অনুযায়ী)</h3>
@@ -658,6 +658,13 @@ function renderReport(){
   document.getElementById('r-month-profit').textContent=fmt(mn.profit);
   document.getElementById('r-year-sale').textContent=fmt(yr.sale);
   document.getElementById('r-year-profit').textContent=fmt(yr.profit);
+
+  const monthsBn=['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'];
+  const monthName=monthsBn[now.getMonth()];
+  document.getElementById('lbl-month-sale').textContent=monthName+' এর বিক্রয়';
+  document.getElementById('lbl-month-profit').textContent=monthName+' এর লাভ';
+  document.getElementById('lbl-year-sale').textContent=now.getFullYear()+' সালের বিক্রয়';
+  document.getElementById('lbl-year-profit').textContent=now.getFullYear()+' সালের লাভ';
 
   // top customers
   const custTotals={};
