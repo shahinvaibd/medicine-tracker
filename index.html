@@ -95,6 +95,7 @@ td{padding:9px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
   <button class="tab active" data-tab="stock">📦 স্টক</button>
   <button class="tab" data-tab="sale">🛒 বিক্রয়</button>
   <button class="tab" data-tab="customer">👥 কাস্টমার</button>
+  <button class="tab" data-tab="hisab">💰 হিসাব</button>
   <button class="tab" data-tab="report">📊 রিপোর্ট</button>
 </div>
 
@@ -173,8 +174,68 @@ td{padding:9px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
   </div>
 </div>
 
+
+<!-- HISAB TAB -->
+<div id="tab-hisab" class="section">
+
+  <!-- ব্যবসার সামগ্রিক চিত্র -->
+  <div class="card">
+    <h3>📊 ব্যবসার সামগ্রিক চিত্র</h3>
+    <div class="grid2" id="business-overview"></div>
+  </div>
+
+  <!-- মূলধন ও উত্তোলন -->
+  <div class="card">
+    <h3>💰 মূলধন / উত্তোলন যোগ করো</h3>
+    <div id="capital-msg" class="msg"></div>
+    <select id="cap-type" style="margin-bottom:8px">
+      <option value="মূলধন বিনিয়োগ">💵 মূলধন বিনিয়োগ (নতুন টাকা ঢাললে)</option>
+      <option value="মালিকের উত্তোলন">💸 মালিকের উত্তোলন (সংসারে নিলে)</option>
+    </select>
+    <div class="row c2">
+      <input id="cap-amount" type="number" placeholder="পরিমাণ (৳)" min="0">
+      <input id="cap-date" type="date">
+    </div>
+    <input id="cap-note" placeholder="নোট (ঐচ্ছিক)">
+    <button class="primary" onclick="addCapitalEntry()">যোগ করো</button>
+  </div>
+
+  <!-- ব্যবসার খরচ -->
+  <div class="card">
+    <h3>🚗 ব্যবসার খরচ যোগ করো</h3>
+    <div id="expense-msg" class="msg"></div>
+    <select id="exp-type" style="margin-bottom:8px">
+      <option value="পরিবহন">🚌 পরিবহন</option>
+      <option value="নাস্তা/খাওয়া">🍔 নাস্তা/খাওয়া</option>
+      <option value="মোবাইল রিচার্জ">📱 মোবাইল রিচার্জ</option>
+      <option value="অন্যান্য">📦 অন্যান্য</option>
+    </select>
+    <div class="row c2">
+      <input id="exp-amount" type="number" placeholder="পরিমাণ (৳)" min="0">
+      <input id="exp-date" type="date">
+    </div>
+    <input id="exp-note" placeholder="নোট (ঐচ্ছিক)">
+    <button class="primary" onclick="addExpenseEntry()">যোগ করো</button>
+  </div>
+
+  <!-- খরচ ও মূলধনের ইতিহাস -->
+  <div class="grid2">
+    <div class="card" style="margin-bottom:0">
+      <h3>💰 মূলধন ইতিহাস</h3>
+      <div id="capital-list"></div>
+    </div>
+    <div class="card" style="margin-bottom:0">
+      <h3>🚗 খরচের ইতিহাস</h3>
+      <div id="expense-list"></div>
+    </div>
+  </div>
+  <div style="margin-bottom:12px"></div>
+
+</div>
+
 <!-- REPORT TAB -->
 <div id="tab-report" class="section">
+
   <div class="grid2">
     <div class="metric"><div class="metric-label">আজকের বিক্রয়</div><div class="metric-val green" id="r-today-sale">৳0</div></div>
     <div class="metric"><div class="metric-label">আজকের লাভ</div><div class="metric-val green profit-val" id="r-today-profit">৳0</div></div>
@@ -183,6 +244,7 @@ td{padding:9px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
     <div class="metric"><div class="metric-label" id="lbl-year-sale">বার্ষিক বিক্রয়</div><div class="metric-val" id="r-year-sale">৳0</div></div>
     <div class="metric"><div class="metric-label" id="lbl-year-profit">বার্ষিক লাভ</div><div class="metric-val green profit-val" id="r-year-profit">৳0</div></div>
   </div>
+
   <div class="card">
     <h3>⚠️ মোট বাকি (সব কাস্টমার)</h3>
     <div id="total-due-summary"></div>
@@ -250,7 +312,7 @@ td{padding:9px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
 <script>
 const API = 'https://script.google.com/macros/s/AKfycbyv-3UwUliwGRS7UlKbJBSJpwijdxze79wh7ndXwOgkx0CIWjz7LJjAahZLip4wYPkY/exec';
 
-let products = [], sales = [], customers = [], payments = [];
+let products = [], sales = [], customers = [], payments = [], expenses = [], capital = [];
 let offlineQueue = JSON.parse(localStorage.getItem('offlineQueue')||'[]');
 let selectedRating = 0;
 let currentFilter = 'all';
@@ -263,12 +325,16 @@ function saveLocal(){
   localStorage.setItem('med_sales', JSON.stringify(sales));
   localStorage.setItem('med_customers', JSON.stringify(customers));
   localStorage.setItem('med_payments', JSON.stringify(payments));
+  localStorage.setItem('med_expenses', JSON.stringify(expenses));
+  localStorage.setItem('med_capital', JSON.stringify(capital));
 }
 function loadLocal(){
   products  = JSON.parse(localStorage.getItem('med_products')||'[]');
   sales     = JSON.parse(localStorage.getItem('med_sales')||'[]');
   customers = JSON.parse(localStorage.getItem('med_customers')||'[]');
   payments  = JSON.parse(localStorage.getItem('med_payments')||'[]');
+  expenses  = JSON.parse(localStorage.getItem('med_expenses')||'[]');
+  capital   = JSON.parse(localStorage.getItem('med_capital')||'[]');
 }
 
 function updateSyncBadge(){
@@ -284,6 +350,8 @@ async function apiGet(){
   sales     = data.sales     || [];
   customers = data.customers || [];
   payments  = data.payments  || [];
+  expenses  = data.expenses  || [];
+  capital   = data.capital   || [];
   saveLocal();
 }
 
@@ -296,6 +364,10 @@ function apiPost(body){
   if(action==='saveCustomer')   url+='&customer='+encodeURIComponent(JSON.stringify(body.customer));
   if(action==='deleteCustomer') url+='&id='+body.id;
   if(action==='addPayment')     url+='&payment='+encodeURIComponent(JSON.stringify(body.payment));
+  if(action==='addExpense')     url+='&expense='+encodeURIComponent(JSON.stringify(body.expense));
+  if(action==='addCapital')     url+='&entry='+encodeURIComponent(JSON.stringify(body.entry));
+  if(action==='deleteExpense')  url+='&id='+body.id;
+  if(action==='deleteCapital')  url+='&id='+body.id;
   if(!isOnline()){ offlineQueue.push(body); saveQueue(); updateSyncBadge(); return; }
   fetch(url).catch(()=>{ offlineQueue.push(body); saveQueue(); updateSyncBadge(); });
 }
@@ -313,6 +385,10 @@ async function syncQueue(){
       if(action==='saveCustomer')   url+='&customer='+encodeURIComponent(JSON.stringify(body.customer));
       if(action==='deleteCustomer') url+='&id='+body.id;
       if(action==='addPayment')     url+='&payment='+encodeURIComponent(JSON.stringify(body.payment));
+      if(action==='addExpense')     url+='&expense='+encodeURIComponent(JSON.stringify(body.expense));
+      if(action==='addCapital')     url+='&entry='+encodeURIComponent(JSON.stringify(body.entry));
+      if(action==='deleteExpense')  url+='&id='+body.id;
+      if(action==='deleteCapital')  url+='&id='+body.id;
       await fetch(url);
     }catch(e){ offlineQueue.push(body); }
   }
@@ -334,6 +410,10 @@ async function init(){
   if(isOnline()){ try{ await apiGet(); await syncQueue(); }catch(e){ loadLocal(); } }
   else loadLocal();
   document.getElementById('loader').remove();
+  // set today as default date for expense/capital inputs
+  const todayStr = new Date().toISOString().split('T')[0];
+  document.getElementById('exp-date').value = todayStr;
+  document.getElementById('cap-date').value = todayStr;
   updateSyncBadge(); renderStock(); renderCustomerDropdown(); addSaleRow();
 }
 
@@ -357,6 +437,7 @@ function showTab(t,btn){
   document.getElementById('tab-'+t).classList.add('active');
   btn.classList.add('active');
   if(t==='report') renderReport();
+  if(t==='hisab'){ renderExpenseCapitalLists(); }
   if(t==='sale'){ renderCustomerDropdown(); renderTodaySales(); }
   if(t==='stock') renderStock();
   if(t==='customer') renderCustomers();
@@ -412,10 +493,12 @@ function deleteProduct(id){
 }
 
 document.addEventListener('click',function(e){
-  if(e.target.classList.contains('del-prod')) deleteProduct(e.target.getAttribute('data-id'));
-  if(e.target.classList.contains('del-cust')) deleteCustomer(e.target.getAttribute('data-id'));
-  if(e.target.classList.contains('edit-cust')) editCustomer(parseInt(e.target.getAttribute('data-id')));
-  if(e.target.classList.contains('show-bill')) showBill(e.target.getAttribute('data-id'));
+  if(e.target.classList.contains('del-prod'))    deleteProduct(e.target.getAttribute('data-id'));
+  if(e.target.classList.contains('del-cust'))    deleteCustomer(e.target.getAttribute('data-id'));
+  if(e.target.classList.contains('edit-cust'))   editCustomer(parseInt(e.target.getAttribute('data-id')));
+  if(e.target.classList.contains('show-bill'))   showBill(e.target.getAttribute('data-id'));
+  if(e.target.classList.contains('del-capital')) deleteCapitalEntry(e.target.getAttribute('data-id'));
+  if(e.target.classList.contains('del-expense')) deleteExpenseEntry(e.target.getAttribute('data-id'));
 });
 
 function updateMetrics(){
@@ -786,6 +869,101 @@ function shareBillWhatsApp(){
 }
 
 // ---- REPORT ----
+// ---- EXPENSE & CAPITAL ----
+function addExpenseEntry(){
+  const type=document.getElementById('exp-type').value;
+  const amount=parseFloat(document.getElementById('exp-amount').value);
+  const date=document.getElementById('exp-date').value || new Date().toISOString().split('T')[0];
+  const note=document.getElementById('exp-note').value.trim();
+  if(!amount||amount<=0){showMsg('expense-msg','সঠিক পরিমাণ লিখো','error');return;}
+  const expense={id:Date.now(),date,type,amount,note};
+  expenses.push(expense);
+  apiPost({action:'addExpense',expense}); saveLocal();
+  showMsg('expense-msg',type+' খরচ যোগ হয়েছে ✓','success');
+  document.getElementById('exp-amount').value='';
+  document.getElementById('exp-note').value='';
+  renderExpenseCapitalLists();
+}
+
+function addCapitalEntry(){
+  const type=document.getElementById('cap-type').value;
+  const amount=parseFloat(document.getElementById('cap-amount').value);
+  const date=document.getElementById('cap-date').value || new Date().toISOString().split('T')[0];
+  const note=document.getElementById('cap-note').value.trim();
+  if(!amount||amount<=0){showMsg('capital-msg','সঠিক পরিমাণ লিখো','error');return;}
+  const entry={id:Date.now(),date,type,amount,note};
+  capital.push(entry);
+  apiPost({action:'addCapital',entry}); saveLocal();
+  showMsg('capital-msg',type+' যোগ হয়েছে ✓','success');
+  document.getElementById('cap-amount').value='';
+  document.getElementById('cap-note').value='';
+  renderExpenseCapitalLists();
+}
+
+function deleteExpenseEntry(id){
+  if(!confirm('মুছে ফেলবে?'))return;
+  expenses=expenses.filter(e=>String(e.id)!==String(id));
+  apiPost({action:'deleteExpense',id}); saveLocal(); renderExpenseCapitalLists();
+}
+
+function deleteCapitalEntry(id){
+  if(!confirm('মুছে ফেলবে?'))return;
+  capital=capital.filter(c=>String(c.id)!==String(id));
+  apiPost({action:'deleteCapital',id}); saveLocal(); renderExpenseCapitalLists();
+}
+
+function renderExpenseCapitalLists(){
+  // Capital list
+  const cl=document.getElementById('capital-list');
+  if(!capital.length) cl.innerHTML='<div class="empty">কোনো এন্ট্রি নেই</div>';
+  else cl.innerHTML=[...capital].reverse().map(c=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f5f5f5;font-size:13px">
+      <div>
+        <div style="font-weight:600;color:${c.type==='মূলধন বিনিয়োগ'?'#1565c0':'#c62828'}">${c.type==='মূলধন বিনিয়োগ'?'💵':'💸'} ${fmt(c.amount)}</div>
+        <div style="font-size:11px;color:#888">${new Date(c.date).toLocaleDateString('bn-BD')} ${c.note?'• '+c.note:''}</div>
+      </div>
+      <button class="sm danger del-capital" data-id="${c.id}">✕</button>
+    </div>`).join('');
+
+  // Expense list
+  const el=document.getElementById('expense-list');
+  if(!expenses.length) el.innerHTML='<div class="empty">কোনো খরচ নেই</div>';
+  else el.innerHTML=[...expenses].reverse().map(e=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f5f5f5;font-size:13px">
+      <div>
+        <div style="font-weight:600;color:#e65100">${e.type}: ${fmt(e.amount)}</div>
+        <div style="font-size:11px;color:#888">${new Date(e.date).toLocaleDateString('bn-BD')} ${e.note?'• '+e.note:''}</div>
+      </div>
+      <button class="sm danger del-expense" data-id="${e.id}">✕</button>
+    </div>`).join('');
+
+  // Business overview
+  renderBusinessOverview();
+}
+
+function renderBusinessOverview(){
+  const totalCapital = capital.filter(c=>c.type==='মূলধন বিনিয়োগ').reduce((a,c)=>a+c.amount,0);
+  const totalWithdrawal = capital.filter(c=>c.type==='মালিকের উত্তোলন').reduce((a,c)=>a+c.amount,0);
+  const totalExpense = expenses.reduce((a,e)=>a+e.amount,0);
+  const totalSalesProfit = sales.reduce((a,s)=>a+s.items.reduce((x,i)=>x+(i.sellPrice-i.buyPrice)*i.qty,0),0);
+  const totalDue = sales.reduce((a,s)=>a+Number(s.dueAmount||0),0);
+  const stockValue = products.reduce((a,p)=>a+p.buyPrice*p.qty,0);
+  const netProfit = totalSalesProfit - totalExpense;
+
+  const el=document.getElementById('business-overview');
+  if(!el)return;
+  el.innerHTML=`
+    <div class="metric"><div class="metric-label">মোট মূলধন বিনিয়োগ</div><div class="metric-val" style="color:#1565c0">${fmt(totalCapital)}</div></div>
+    <div class="metric"><div class="metric-label">মোট বিক্রয় লাভ</div><div class="metric-val profit-val green">${fmt(totalSalesProfit)}</div></div>
+    <div class="metric"><div class="metric-label">মোট ব্যবসার খরচ</div><div class="metric-val red">${fmt(totalExpense)}</div></div>
+    <div class="metric"><div class="metric-label">প্রকৃত নিট লাভ</div><div class="metric-val profit-val green">${fmt(netProfit)}</div></div>
+    <div class="metric"><div class="metric-label">মালিকের উত্তোলন</div><div class="metric-val" style="color:#e65100">${fmt(totalWithdrawal)}</div></div>
+    <div class="metric"><div class="metric-label">স্টকে আটকা মূলধন</div><div class="metric-val" style="color:#555">${fmt(stockValue)}</div></div>
+    <div class="metric"><div class="metric-label">মোট বাকি পাওনা</div><div class="metric-val red">${fmt(totalDue)}</div></div>
+    <div class="metric"><div class="metric-label">আনুমানিক হাতে নগদ</div><div class="metric-val green">${fmt(totalCapital+totalSalesProfit-totalExpense-totalWithdrawal-stockValue-totalDue)}</div></div>
+  `;
+}
+
 function setFilter(f,btn){
   currentFilter=f;
   document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
