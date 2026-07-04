@@ -406,16 +406,34 @@ async function init(){
   const days=['রবিবার','সোমবার','মঙ্গলবার','বুধবার','বৃহস্পতিবার','শুক্রবার','শনিবার'];
   const months=['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'];
   document.getElementById('today-date').textContent=`${days[d.getDay()]}, ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
-  document.body.innerHTML+=`<div id="loader" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,0.9);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999;font-size:15px;color:#1565c0"><div style="font-size:36px;margin-bottom:12px">⏳</div>তথ্য লোড হচ্ছে...</div>`;
-  if(isOnline()){ try{ await apiGet(); await syncQueue(); }catch(e){ loadLocal(); } }
-  else loadLocal();
-  document.getElementById('loader').remove();
-  // set today as default date for expense/capital inputs
+
+  // set today as default date
   const todayStr = new Date().toISOString().split('T')[0];
+
+  // ১. আগে local cache থেকে সাথে সাথে দেখাও — loader লাগবে না
+  loadLocal();
   document.getElementById('exp-date').value = todayStr;
   document.getElementById('cap-date').value = todayStr;
   updateSyncBadge(); renderStock(); renderCustomerDropdown(); addSaleRow();
+
+  // ২. background-এ Google Sheets থেকে নতুন data আনো
+  if(isOnline()){
+    try{
+      await syncQueue();
+      await apiGet();
+      // চুপচাপ UI আপডেট করো
+      renderStock(); renderCustomerDropdown();
+      // যে ট্যাবে আছো সেটা refresh করো
+      const activeTab = document.querySelector('.tab.active');
+      if(activeTab) showTab(activeTab.dataset.tab, activeTab);
+    } catch(e){
+      // ইন্টারনেট সমস্যা হলে local data-ই থাকবে
+    }
+  }
 }
+
+// data save হওয়ার পর page close/refresh হলেও local-এ থাকবে
+window.addEventListener('beforeunload', ()=>{ saveLocal(); });
 
 function showMsg(id,text,type){
   const el=document.getElementById(id);
@@ -431,11 +449,11 @@ function toggleProfitView(){
   btn.textContent = document.body.classList.contains('profit-hidden') ? '👁️ লাভ' : '🙈 লুকাও';
 }
 
-function showTab(t,btn){
+function showTab(t, btn){
   document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.getElementById('tab-'+t).classList.add('active');
-  btn.classList.add('active');
+  if(btn) btn.classList.add('active');
   if(t==='report') renderReport();
   if(t==='hisab'){ renderExpenseCapitalLists(); }
   if(t==='sale'){ renderCustomerDropdown(); renderTodaySales(); }
