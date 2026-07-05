@@ -403,7 +403,7 @@ function updateSyncBadge(){
 }
 
 async function apiGet(){
-  const res = await fetch(API+'?action=getAll');
+  const res = await fetch(API+'?action=getAll&t='+Date.now());
   const data = await res.json();
   products  = data.products  || [];
   sales     = data.sales     || [];
@@ -427,17 +427,17 @@ function buildUrl(body){
   if(action==='addCapital')     url+='&entry='+encodeURIComponent(JSON.stringify(body.entry));
   if(action==='deleteExpense')  url+='&id='+body.id;
   if(action==='deleteCapital')  url+='&id='+body.id;
-  return url;
+  return url + '&t=' + Date.now();
 }
 
-// সব entry await করে save করবে — তাহলে দুই device-এ একই data থাকবে
+// no-cors mode দিয়ে পাঠাও — CORS error আসবে না
 async function apiPost(body){
-  saveLocal(); // আগে local-এ save করো
+  saveLocal();
   if(!isOnline()){
     offlineQueue.push(body); saveQueue(); updateSyncBadge(); return;
   }
   try{
-    await fetch(buildUrl(body));
+    await fetch(buildUrl(body), {mode:'no-cors'});
   } catch(e){
     offlineQueue.push(body); saveQueue(); updateSyncBadge();
   }
@@ -447,7 +447,7 @@ async function syncQueue(){
   if(!isOnline()||offlineQueue.length===0){ updateSyncBadge(); return; }
   const queue=[...offlineQueue]; offlineQueue=[]; saveQueue(); updateSyncBadge();
   for(const body of queue){
-    try{ await fetch(buildUrl(body)); }
+    try{ await fetch(buildUrl(body), {mode:'no-cors'}); }
     catch(e){ offlineQueue.push(body); }
   }
   saveQueue(); updateSyncBadge();
