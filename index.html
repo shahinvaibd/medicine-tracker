@@ -414,7 +414,7 @@ async function apiGet(){
   saveLocal();
 }
 
-function apiPost(body){
+function buildUrl(body){
   const action = body.action;
   let url = API+'?action='+action;
   if(action==='saveProducts')   url+='&products='+encodeURIComponent(JSON.stringify(body.products));
@@ -427,34 +427,35 @@ function apiPost(body){
   if(action==='addCapital')     url+='&entry='+encodeURIComponent(JSON.stringify(body.entry));
   if(action==='deleteExpense')  url+='&id='+body.id;
   if(action==='deleteCapital')  url+='&id='+body.id;
-  if(!isOnline()){ offlineQueue.push(body); saveQueue(); updateSyncBadge(); return; }
-  fetch(url).catch(()=>{ offlineQueue.push(body); saveQueue(); updateSyncBadge(); });
+  return url;
+}
+
+// সব entry await করে save করবে — তাহলে দুই device-এ একই data থাকবে
+async function apiPost(body){
+  saveLocal(); // আগে local-এ save করো
+  if(!isOnline()){
+    offlineQueue.push(body); saveQueue(); updateSyncBadge(); return;
+  }
+  try{
+    await fetch(buildUrl(body));
+  } catch(e){
+    offlineQueue.push(body); saveQueue(); updateSyncBadge();
+  }
 }
 
 async function syncQueue(){
-  if(!isOnline()||offlineQueue.length===0) return;
-  const queue=[...offlineQueue]; offlineQueue=[]; saveQueue();
+  if(!isOnline()||offlineQueue.length===0){ updateSyncBadge(); return; }
+  const queue=[...offlineQueue]; offlineQueue=[]; saveQueue(); updateSyncBadge();
   for(const body of queue){
-    try{
-      const action=body.action;
-      let url=API+'?action='+action;
-      if(action==='saveProducts')   url+='&products='+encodeURIComponent(JSON.stringify(body.products));
-      if(action==='addSale')        url+='&sale='+encodeURIComponent(JSON.stringify(body.sale));
-      if(action==='deleteProduct')  url+='&id='+body.id;
-      if(action==='saveCustomer')   url+='&customer='+encodeURIComponent(JSON.stringify(body.customer));
-      if(action==='deleteCustomer') url+='&id='+body.id;
-      if(action==='addPayment')     url+='&payment='+encodeURIComponent(JSON.stringify(body.payment));
-      if(action==='addExpense')     url+='&expense='+encodeURIComponent(JSON.stringify(body.expense));
-      if(action==='addCapital')     url+='&entry='+encodeURIComponent(JSON.stringify(body.entry));
-      if(action==='deleteExpense')  url+='&id='+body.id;
-      if(action==='deleteCapital')  url+='&id='+body.id;
-      await fetch(url);
-    }catch(e){ offlineQueue.push(body); }
+    try{ await fetch(buildUrl(body)); }
+    catch(e){ offlineQueue.push(body); }
   }
   saveQueue(); updateSyncBadge();
   if(offlineQueue.length===0){
     showMsg('sync-msg','সব তথ্য sync হয়েছে ✓','success');
-    await apiGet(); renderStock(); renderCustomers();
+    await apiGet();
+    const activeTab = document.querySelector('.tab.active');
+    if(activeTab) showTab(activeTab.dataset.tab, activeTab);
   }
 }
 
@@ -527,7 +528,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 });
 
 // ---- STOCK ----
-function addProduct(){
+async function addProduct(){
   const name=document.getElementById('p-name').value.trim();
   const buy=parseFloat(document.getElementById('p-buy').value);
   const sell=parseFloat(document.getElementById('p-sell').value);
@@ -543,7 +544,7 @@ function addProduct(){
     products.push({id:Date.now(),name,buyPrice:buy,sellPrice:sell,qty,unit,minQty:min});
     showMsg('stock-msg',name+' যোগ হয়েছে ✓','success');
   }
-  apiPost({action:'saveProducts',products}); saveLocal();
+  await apiPost({action:'saveProducts',products});
   ['p-name','p-buy','p-sell','p-qty','p-unit','p-min'].forEach(id=>{document.getElementById(id).value='';});
   renderStock();
 }
@@ -562,11 +563,11 @@ function renderStock(){
     }).join('')+'</tbody></table>';
 }
 
-function deleteProduct(id){
+async function deleteProduct(id){
   id=parseInt(id);
   if(!confirm('মুছে ফেলবে?'))return;
   products=products.filter(p=>p.id!==id);
-  apiPost({action:'deleteProduct',id}); saveLocal(); renderStock();
+  await apiPost({action:'deleteProduct',id}); renderStock();
 }
 
 document.addEventListener('click',function(e){
@@ -602,7 +603,7 @@ function ratingLabel(r){
   return '<span style="color:#aaa;font-size:12px">বিক্রয় নেই</span>';
 }
 
-function saveCustomer(){
+async function saveCustomer(){
   const name=document.getElementById('c-name').value.trim();
   const phone=document.getElementById('c-phone').value.trim();
   const address=document.getElementById('c-address').value.trim();
@@ -612,7 +613,7 @@ function saveCustomer(){
   const customer={id:editId?parseInt(editId):Date.now(),name,phone,address,note,createdAt:new Date().toISOString()};
   const ex=customers.findIndex(c=>c.id===customer.id);
   if(ex>=0) customers[ex]=customer; else customers.push(customer);
-  apiPost({action:'saveCustomer',customer}); saveLocal();
+  await apiPost({action:'saveCustomer',customer});
   showMsg('customer-msg',name+' সেভ হয়েছে ✓','success');
   ['c-name','c-phone','c-address','c-note'].forEach(id=>{document.getElementById(id).value='';});
   document.getElementById('c-edit-id').value='';
@@ -629,11 +630,11 @@ function editCustomer(id){
   document.querySelector('#tab-customer .card').scrollIntoView({behavior:'smooth'});
 }
 
-function deleteCustomer(id){
+async function deleteCustomer(id){
   id=parseInt(id);
   if(!confirm('এই কাস্টমার মুছে ফেলবে?'))return;
   customers=customers.filter(c=>c.id!==id);
-  apiPost({action:'deleteCustomer',id}); saveLocal(); renderCustomers(); renderCustomerDropdown();
+  await apiPost({action:'deleteCustomer',id}); renderCustomers(); renderCustomerDropdown();
 }
 
 // ---- PAY DUE ----
@@ -648,7 +649,7 @@ function openPayDue(custId, custName, dueAmount){
 }
 function closePayDue(){ document.getElementById('pay-modal').classList.remove('active'); }
 
-function recordPayment(){
+async function recordPayment(){
   const custId = document.getElementById('pay-cust-id').value;
   const custName = document.getElementById('pay-cust-name').textContent;
   const amount = parseFloat(document.getElementById('pay-amount').value);
@@ -666,7 +667,7 @@ function recordPayment(){
       remaining -= reduce;
     }
   }
-  apiPost({action:'addPayment', payment}); saveLocal();
+  await apiPost({action:'addPayment', payment});
   showMsg('customer-msg', fmt(amount)+' টাকা পরিশোধ এন্ট্রি হয়েছে ✓','success');
   closePayDue();
   renderCustomers();
@@ -818,7 +819,7 @@ function calcDue(){
   document.getElementById('s-due').value = due;
 }
 
-function recordSale(){
+async function recordSale(){
   const custId=document.getElementById('s-customer').value;
   const manualName=document.getElementById('s-buyer').value.trim();
   const cust=custId?customers.find(c=>c.id==custId):null;
@@ -844,7 +845,7 @@ function recordSale(){
   const sale={id:Date.now(),date:new Date().toISOString(),buyer:buyerName,buyerId:custId||'',items,paidAmount:paid,dueAmount:due};
   items.forEach(item=>{const p=products.find(pr=>pr.id===item.productId);if(p)p.qty-=item.qty;});
   sales.push(sale); lastSale=sale;
-  apiPost({action:'addSale',sale}); saveLocal();
+  await apiPost({action:'addSale',sale});
   showMsg('sale-msg', due>0 ? `বিক্রয় সংরক্ষিত ✓ — ${fmt(due)} বাকি রইলো` : 'বিক্রয় সংরক্ষিত হয়েছে ✓','success');
   document.getElementById('s-customer').value='';
   document.getElementById('s-buyer').value='';
@@ -947,7 +948,7 @@ function shareBillWhatsApp(){
 
 // ---- REPORT ----
 // ---- EXPENSE & CAPITAL ----
-function addExpenseEntry(){
+async function addExpenseEntry(){
   const type=document.getElementById('exp-type').value;
   const amount=parseFloat(document.getElementById('exp-amount').value);
   const date=document.getElementById('exp-date').value || new Date().toISOString().split('T')[0];
@@ -955,14 +956,14 @@ function addExpenseEntry(){
   if(!amount||amount<=0){showMsg('expense-msg','সঠিক পরিমাণ লিখো','error');return;}
   const expense={id:Date.now(),date,type,amount,note};
   expenses.push(expense);
-  apiPost({action:'addExpense',expense}); saveLocal();
+  await apiPost({action:'addExpense',expense});
   showMsg('expense-msg',type+' খরচ যোগ হয়েছে ✓','success');
   document.getElementById('exp-amount').value='';
   document.getElementById('exp-note').value='';
   renderExpenseCapitalLists();
 }
 
-function addCapitalEntry(){
+async function addCapitalEntry(){
   const type=document.getElementById('cap-type').value;
   const amount=parseFloat(document.getElementById('cap-amount').value);
   const date=document.getElementById('cap-date').value || new Date().toISOString().split('T')[0];
@@ -970,23 +971,23 @@ function addCapitalEntry(){
   if(!amount||amount<=0){showMsg('capital-msg','সঠিক পরিমাণ লিখো','error');return;}
   const entry={id:Date.now(),date,type,amount,note};
   capital.push(entry);
-  apiPost({action:'addCapital',entry}); saveLocal();
+  await apiPost({action:'addCapital',entry});
   showMsg('capital-msg',type+' যোগ হয়েছে ✓','success');
   document.getElementById('cap-amount').value='';
   document.getElementById('cap-note').value='';
   renderExpenseCapitalLists();
 }
 
-function deleteExpenseEntry(id){
+async function deleteExpenseEntry(id){
   if(!confirm('মুছে ফেলবে?'))return;
   expenses=expenses.filter(e=>String(e.id)!==String(id));
-  apiPost({action:'deleteExpense',id}); saveLocal(); renderExpenseCapitalLists();
+  await apiPost({action:'deleteExpense',id}); renderExpenseCapitalLists();
 }
 
-function deleteCapitalEntry(id){
+async function deleteCapitalEntry(id){
   if(!confirm('মুছে ফেলবে?'))return;
   capital=capital.filter(c=>String(c.id)!==String(id));
-  apiPost({action:'deleteCapital',id}); saveLocal(); renderExpenseCapitalLists();
+  await apiPost({action:'deleteCapital',id}); renderExpenseCapitalLists();
 }
 
 function renderExpenseCapitalLists(){
