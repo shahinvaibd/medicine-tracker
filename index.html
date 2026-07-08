@@ -5,18 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>মেডিসিন ব্যবসা ট্র্যাকার</title>
 <style>
-/* PIN LOCK */
-#pin-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:#1565c0;z-index:9999;display:flex;align-items:center;justify-content:center}
-#pin-box{background:#fff;border-radius:16px;padding:32px 24px;width:300px;text-align:center}
-#pin-box h2{font-size:20px;color:#1565c0;margin-bottom:6px}
-#pin-box p{font-size:13px;color:#888;margin-bottom:20px}
-#pin-input{width:100%;padding:14px;font-size:24px;text-align:center;letter-spacing:8px;border:2px solid #ddd;border-radius:10px;margin-bottom:12px;background:#f9f9f9}
-#pin-input:focus{outline:none;border-color:#1565c0}
-#pin-error{color:#c62828;font-size:13px;margin-bottom:10px;min-height:18px}
-#pin-submit{width:100%;padding:12px;background:#1565c0;color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:600;cursor:pointer}
-#pin-submit:active{background:#0d47a1}
-</style>
-<style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:sans-serif;background:#f5f5f5;color:#1a1a1a;font-size:15px}
 header{background:#1565c0;color:#fff;padding:14px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:100}
@@ -92,17 +80,6 @@ td{padding:9px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
 </head>
 <body class="profit-hidden">
 
-<!-- PIN LOCK OVERLAY -->
-<div id="pin-overlay">
-  <div id="pin-box">
-    <div style="font-size:40px;margin-bottom:8px">🔐</div>
-    <h2>মেডিসিন ট্র্যাকার</h2>
-    <p>আপনার PIN দিন</p>
-    <input id="pin-input" type="password" inputmode="numeric" maxlength="6" placeholder="••••" onkeydown="if(event.key==='Enter')checkPin()">
-    <div id="pin-error"></div>
-    <button id="pin-submit" onclick="checkPin()">প্রবেশ করুন 🔓</button>
-  </div>
-</div>
 
 <header>
   <div style="font-size:22px">💊</div>
@@ -334,41 +311,6 @@ td{padding:9px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
 </div>
 
 <script>
-// ---- PIN LOCK ----
-const CORRECT_PIN = '1234'; // এখানে তোমার PIN বদলাও
-const PIN_EXPIRY_DAYS = 7;
-const PIN_KEY = 'med_pin_unlocked';
-
-function checkPinOnLoad(){
-  const stored = localStorage.getItem(PIN_KEY);
-  if(stored){
-    const unlockTime = parseInt(stored);
-    const daysPassed = (Date.now() - unlockTime) / (1000*60*60*24);
-    if(daysPassed < PIN_EXPIRY_DAYS){
-      document.getElementById('pin-overlay').style.display='none';
-      return;
-    }
-  }
-  // PIN দরকার — focus করো
-  setTimeout(()=>document.getElementById('pin-input').focus(), 300);
-}
-
-function checkPin(){
-  const entered = document.getElementById('pin-input').value.trim();
-  if(entered === CORRECT_PIN){
-    localStorage.setItem(PIN_KEY, Date.now().toString());
-    document.getElementById('pin-overlay').style.display='none';
-    document.getElementById('pin-error').textContent='';
-  } else {
-    document.getElementById('pin-error').textContent='❌ PIN ভুল হয়েছে, আবার চেষ্টা করো';
-    document.getElementById('pin-input').value='';
-    document.getElementById('pin-input').focus();
-  }
-}
-
-// page load-এ PIN check করো
-checkPinOnLoad();
-
 // Cloudflare Worker proxy দিয়ে Google Sheets-এ data save/load করো
 const API = 'https://old-poetry-3bf6.shahinvaibd24.workers.dev';
 
