@@ -369,97 +369,82 @@ function checkPin(){
 // page load-এ PIN check করো
 checkPinOnLoad();
 
-const API = 'https://script.google.com/macros/s/AKfycbx_Jb-3EXccPebUtuZxYmehx-XmVMPbi9WNu1A8OvXl28nmAQFAiqMBCu66xMIp7-XLdg/exec';
+// Cloudflare Worker proxy দিয়ে Google Sheets-এ data save/load করো
+const API = 'https://old-poetry-3bf6.shahinvaibd24.workers.dev';
 
 let products = [], sales = [], customers = [], payments = [], expenses = [], capital = [];
-let offlineQueue = JSON.parse(localStorage.getItem('offlineQueue')||'[]');
 let selectedRating = 0;
 let currentFilter = 'all';
 let lastSale = null;
+let offlineQueue = [];
 
-function isOnline(){ return navigator.onLine; }
-function saveQueue(){ localStorage.setItem('offlineQueue', JSON.stringify(offlineQueue)); }
 function saveLocal(){
-  localStorage.setItem('med_products', JSON.stringify(products));
-  localStorage.setItem('med_sales', JSON.stringify(sales));
-  localStorage.setItem('med_customers', JSON.stringify(customers));
-  localStorage.setItem('med_payments', JSON.stringify(payments));
-  localStorage.setItem('med_expenses', JSON.stringify(expenses));
-  localStorage.setItem('med_capital', JSON.stringify(capital));
+  try{
+    localStorage.setItem('med_products', JSON.stringify(products));
+    localStorage.setItem('med_sales', JSON.stringify(sales));
+    localStorage.setItem('med_customers', JSON.stringify(customers));
+    localStorage.setItem('med_payments', JSON.stringify(payments));
+    localStorage.setItem('med_expenses', JSON.stringify(expenses));
+    localStorage.setItem('med_capital', JSON.stringify(capital));
+  }catch(e){}
 }
 function loadLocal(){
-  products  = JSON.parse(localStorage.getItem('med_products')||'[]');
-  sales     = JSON.parse(localStorage.getItem('med_sales')||'[]');
-  customers = JSON.parse(localStorage.getItem('med_customers')||'[]');
-  payments  = JSON.parse(localStorage.getItem('med_payments')||'[]');
-  expenses  = JSON.parse(localStorage.getItem('med_expenses')||'[]');
-  capital   = JSON.parse(localStorage.getItem('med_capital')||'[]');
+  try{
+    products  = JSON.parse(localStorage.getItem('med_products')||'[]');
+    sales     = JSON.parse(localStorage.getItem('med_sales')||'[]');
+    customers = JSON.parse(localStorage.getItem('med_customers')||'[]');
+    payments  = JSON.parse(localStorage.getItem('med_payments')||'[]');
+    expenses  = JSON.parse(localStorage.getItem('med_expenses')||'[]');
+    capital   = JSON.parse(localStorage.getItem('med_capital')||'[]');
+  }catch(e){}
 }
-
 function updateSyncBadge(){
-  const b = document.getElementById('sync-badge');
-  if(offlineQueue.length > 0){ b.style.display='inline-block'; b.textContent=offlineQueue.length+'টি pending'; }
-  else b.style.display='none';
+  const b=document.getElementById('sync-badge');
+  if(b) b.style.display='none';
+}
+function isOnline(){ return navigator.onLine; }
+
+function buildUrl(params){
+  const q = Object.entries(params).map(([k,v])=>
+    k+'='+encodeURIComponent(typeof v==='object'?JSON.stringify(v):v)
+  ).join('&');
+  return API+'?'+q+'&t='+Date.now();
 }
 
 async function apiGet(){
-  const res = await fetch(API+'?action=getAll&t='+Date.now());
-  const data = await res.json();
-  products  = data.products  || [];
-  sales     = data.sales     || [];
-  customers = data.customers || [];
-  payments  = data.payments  || [];
-  expenses  = data.expenses  || [];
-  capital   = data.capital   || [];
-  saveLocal();
+  try{
+    const res = await fetch(buildUrl({action:'getAll'}));
+    const data = await res.json();
+    products  = data.products  || [];
+    sales     = data.sales     || [];
+    customers = data.customers || [];
+    payments  = data.payments  || [];
+    expenses  = data.expenses  || [];
+    capital   = data.capital   || [];
+    saveLocal();
+  }catch(e){ loadLocal(); }
 }
 
-function buildUrl(body){
-  const action = body.action;
-  let url = API+'?action='+action;
-  if(action==='saveProducts')   url+='&products='+encodeURIComponent(JSON.stringify(body.products));
-  if(action==='addSale')        url+='&sale='+encodeURIComponent(JSON.stringify(body.sale));
-  if(action==='deleteProduct')  url+='&id='+body.id;
-  if(action==='saveCustomer')   url+='&customer='+encodeURIComponent(JSON.stringify(body.customer));
-  if(action==='deleteCustomer') url+='&id='+body.id;
-  if(action==='addPayment')     url+='&payment='+encodeURIComponent(JSON.stringify(body.payment));
-  if(action==='addExpense')     url+='&expense='+encodeURIComponent(JSON.stringify(body.expense));
-  if(action==='addCapital')     url+='&entry='+encodeURIComponent(JSON.stringify(body.entry));
-  if(action==='deleteExpense')  url+='&id='+body.id;
-  if(action==='deleteCapital')  url+='&id='+body.id;
-  return url + '&t=' + Date.now();
-}
-
-// no-cors mode দিয়ে পাঠাও — CORS error আসবে না
 async function apiPost(body){
   saveLocal();
-  if(!isOnline()){
-    offlineQueue.push(body); saveQueue(); updateSyncBadge(); return;
-  }
+  const action = body.action;
+  const params = {action};
+  if(action==='saveProducts')   params.products = body.products;
+  if(action==='addSale')        params.sale = body.sale;
+  if(action==='deleteProduct')  params.id = body.id;
+  if(action==='saveCustomer')   params.customer = body.customer;
+  if(action==='deleteCustomer') params.id = body.id;
+  if(action==='addPayment')     params.payment = body.payment;
+  if(action==='addExpense')     params.expense = body.expense;
+  if(action==='addCapital')     params.entry = body.entry;
+  if(action==='deleteExpense')  params.id = body.id;
+  if(action==='deleteCapital')  params.id = body.id;
   try{
-    await fetch(buildUrl(body), {mode:'no-cors'});
-  } catch(e){
-    offlineQueue.push(body); saveQueue(); updateSyncBadge();
+    await fetch(buildUrl(params));
+  }catch(e){
+    console.error('Save failed:', e);
   }
 }
-
-async function syncQueue(){
-  if(!isOnline()||offlineQueue.length===0){ updateSyncBadge(); return; }
-  const queue=[...offlineQueue]; offlineQueue=[]; saveQueue(); updateSyncBadge();
-  for(const body of queue){
-    try{ await fetch(buildUrl(body), {mode:'no-cors'}); }
-    catch(e){ offlineQueue.push(body); }
-  }
-  saveQueue(); updateSyncBadge();
-  if(offlineQueue.length===0){
-    showMsg('sync-msg','সব তথ্য sync হয়েছে ✓','success');
-    await apiGet();
-    const activeTab = document.querySelector('.tab.active');
-    if(activeTab) showTab(activeTab.dataset.tab, activeTab);
-  }
-}
-
-window.addEventListener('online',()=>{ showMsg('sync-msg','ইন্টারনেট পাওয়া গেছে, sync হচ্ছে...','success'); setTimeout(syncQueue,1000); });
 
 async function init(){
   const d=new Date();
