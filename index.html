@@ -381,10 +381,12 @@ async function apiPost(body){
   if(action==='addCapital')     params.entry = body.entry;
   if(action==='deleteExpense')  params.id = body.id;
   if(action==='deleteCapital')  params.id = body.id;
+  if(!isOnline()){ offlineQueue.push(body); saveQueue(); updateSyncBadge(); return; }
   try{
-    await fetch(buildUrl(params));
+    // no-cors দিলে redirect সমস্যা হয় না, response পড়া না গেলেও save হয়
+    await fetch(buildUrl(params), {mode:'no-cors', redirect:'follow'});
   }catch(e){
-    console.error('Save failed:', e);
+    offlineQueue.push(body); saveQueue(); updateSyncBadge();
   }
 }
 
