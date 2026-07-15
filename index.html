@@ -318,9 +318,59 @@ let products = [], sales = [], customers = [], payments = [], expenses = [], cap
 let selectedRating = 0;
 let currentFilter = 'all';
 let lastSale = null;
-let offlineQueue = [];
+let offlineQueue = JSON.parse(localStorage.getItem('offlineQueue')||'[]');
+function saveQueue(){ localStorage.setItem('offlineQueue', JSON.stringify(offlineQueue)); }
 
-function saveLocal(){
+async function apiPost(body){
+  saveLocal();
+  const action = body.action;
+  const params = {action};
+  if(action==='saveProducts')   params.products = body.products;
+  if(action==='addSale')        params.sale = body.sale;
+  if(action==='deleteProduct')  params.id = body.id;
+  if(action==='saveCustomer')   params.customer = body.customer;
+  if(action==='deleteCustomer') params.id = body.id;
+  if(action==='addPayment')     params.payment = body.payment;
+  if(action==='addExpense')     params.expense = body.expense;
+  if(action==='addCapital')     params.entry = body.entry;
+  if(action==='deleteExpense')  params.id = body.id;
+  if(action==='deleteCapital')  params.id = body.id;
+  if(!isOnline()){
+    offlineQueue.push(body); saveQueue(); updateSyncBadge(); return;
+  }
+  try{
+    await fetch(buildUrl(params));
+  }catch(e){
+    offlineQueue.push(body); saveQueue(); updateSyncBadge();
+  }
+}
+
+async function syncQueue(){
+  if(!isOnline()||offlineQueue.length===0) return;
+  const queue=[...offlineQueue]; offlineQueue=[]; saveQueue();
+  for(const body of queue){
+    try{
+      const action=body.action;
+      const params={action};
+      if(action==='saveProducts')   params.products=body.products;
+      if(action==='addSale')        params.sale=body.sale;
+      if(action==='deleteProduct')  params.id=body.id;
+      if(action==='saveCustomer')   params.customer=body.customer;
+      if(action==='deleteCustomer') params.id=body.id;
+      if(action==='addPayment')     params.payment=body.payment;
+      if(action==='addExpense')     params.expense=body.expense;
+      if(action==='addCapital')     params.entry=body.entry;
+      if(action==='deleteExpense')  params.id=body.id;
+      if(action==='deleteCapital')  params.id=body.id;
+      await fetch(buildUrl(params));
+    }catch(e){ offlineQueue.push(body); }
+  }
+  saveQueue(); updateSyncBadge();
+  if(offlineQueue.length===0){
+    showMsg('sync-msg','সব তথ্য sync হয়েছে ✓','success');
+    await apiGet(); renderStock();
+  }
+}
   try{
     localStorage.setItem('med_products', JSON.stringify(products));
     localStorage.setItem('med_sales', JSON.stringify(sales));
@@ -342,7 +392,13 @@ function loadLocal(){
 }
 function updateSyncBadge(){
   const b=document.getElementById('sync-badge');
-  if(b) b.style.display='none';
+  if(!b) return;
+  if(offlineQueue.length>0){
+    b.style.display='inline-block';
+    b.textContent=offlineQueue.length+'টি pending';
+  } else {
+    b.style.display='none';
+  }
 }
 function isOnline(){ return navigator.onLine; }
 
@@ -367,28 +423,6 @@ async function apiGet(){
   }catch(e){ loadLocal(); }
 }
 
-async function apiPost(body){
-  saveLocal();
-  const action = body.action;
-  const params = {action};
-  if(action==='saveProducts')   params.products = body.products;
-  if(action==='addSale')        params.sale = body.sale;
-  if(action==='deleteProduct')  params.id = body.id;
-  if(action==='saveCustomer')   params.customer = body.customer;
-  if(action==='deleteCustomer') params.id = body.id;
-  if(action==='addPayment')     params.payment = body.payment;
-  if(action==='addExpense')     params.expense = body.expense;
-  if(action==='addCapital')     params.entry = body.entry;
-  if(action==='deleteExpense')  params.id = body.id;
-  if(action==='deleteCapital')  params.id = body.id;
-  if(!isOnline()){ offlineQueue.push(body); saveQueue(); updateSyncBadge(); return; }
-  try{
-    // no-cors দিলে redirect সমস্যা হয় না, response পড়া না গেলেও save হয়
-    await fetch(buildUrl(params), {mode:'no-cors', redirect:'follow'});
-  }catch(e){
-    offlineQueue.push(body); saveQueue(); updateSyncBadge();
-  }
-}
 
 async function init(){
   const d=new Date();
@@ -422,6 +456,11 @@ async function init(){
 }
 
 // data save হওয়ার পর page close/refresh হলেও local-এ থাকবে
+window.addEventListener('online', ()=>{
+  showMsg('sync-msg','ইন্টারনেট পাওয়া গেছে, sync হচ্ছে...','success');
+  setTimeout(syncQueue, 1000);
+});
+
 window.addEventListener('beforeunload', ()=>{ saveLocal(); });
 
 function showMsg(id,text,type){
