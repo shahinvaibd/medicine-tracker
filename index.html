@@ -323,25 +323,16 @@ function saveQueue(){ localStorage.setItem('offlineQueue', JSON.stringify(offlin
 
 async function apiPost(body){
   saveLocal();
-  const action = body.action;
-  const params = {action};
-  if(action==='saveProducts')   params.products = body.products;
-  if(action==='addSale')        params.sale = body.sale;
-  if(action==='deleteProduct')  params.id = body.id;
-  if(action==='saveCustomer')   params.customer = body.customer;
-  if(action==='deleteCustomer') params.id = body.id;
-  if(action==='addPayment')     params.payment = body.payment;
-  if(action==='addExpense')     params.expense = body.expense;
-  if(action==='addCapital')     params.entry = body.entry;
-  if(action==='deleteExpense')  params.id = body.id;
-  if(action==='deleteCapital')  params.id = body.id;
   if(!isOnline()){
     offlineQueue.push(body); saveQueue(); updateSyncBadge(); return;
   }
   try{
-    await fetch(buildUrl(params));
+    const res = await fetch(API, { method:'POST', body: JSON.stringify(body) });
+    const data = await res.json();
+    if(data && data.error){ throw new Error(data.error); }
   }catch(e){
     offlineQueue.push(body); saveQueue(); updateSyncBadge();
+    showMsg('sync-msg','সার্ভারে সেভ করা যায়নি, ইন্টারনেট এলে আবার চেষ্টা হবে','error');
   }
 }
 
@@ -350,19 +341,9 @@ async function syncQueue(){
   const queue=[...offlineQueue]; offlineQueue=[]; saveQueue();
   for(const body of queue){
     try{
-      const action=body.action;
-      const params={action};
-      if(action==='saveProducts')   params.products=body.products;
-      if(action==='addSale')        params.sale=body.sale;
-      if(action==='deleteProduct')  params.id=body.id;
-      if(action==='saveCustomer')   params.customer=body.customer;
-      if(action==='deleteCustomer') params.id=body.id;
-      if(action==='addPayment')     params.payment=body.payment;
-      if(action==='addExpense')     params.expense=body.expense;
-      if(action==='addCapital')     params.entry=body.entry;
-      if(action==='deleteExpense')  params.id=body.id;
-      if(action==='deleteCapital')  params.id=body.id;
-      await fetch(buildUrl(params));
+      const res = await fetch(API, { method:'POST', body: JSON.stringify(body) });
+      const data = await res.json();
+      if(data && data.error){ throw new Error(data.error); }
     }catch(e){ offlineQueue.push(body); }
   }
   saveQueue(); updateSyncBadge();
@@ -373,6 +354,7 @@ async function syncQueue(){
 }
 function saveLocal(){
   try{
+    localStorage.setItem('med_products', JSON.stringify(products));
     localStorage.setItem('med_sales', JSON.stringify(sales));
     localStorage.setItem('med_customers', JSON.stringify(customers));
     localStorage.setItem('med_payments', JSON.stringify(payments));
