@@ -371,8 +371,8 @@ async function syncQueue(){
     await apiGet(); renderStock();
   }
 }
+function saveLocal(){
   try{
-    localStorage.setItem('med_products', JSON.stringify(products));
     localStorage.setItem('med_sales', JSON.stringify(sales));
     localStorage.setItem('med_customers', JSON.stringify(customers));
     localStorage.setItem('med_payments', JSON.stringify(payments));
