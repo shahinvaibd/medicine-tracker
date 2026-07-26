@@ -141,11 +141,12 @@ td{padding:9px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
     <div id="sale-items"></div>
     <button class="sm add-row" onclick="addSaleRow()">➕ আরেকটি প্রোডাক্ট যোগ করো</button>
     <div class="total-bar" id="sale-total" style="display:none">
-      মোট বিল: <span id="st-total">৳0</span> | লাভ: <span id="st-profit" class="profit-text profit-val">৳0</span>
+      মোট বিল: <span id="st-total">৳0</span> | ছাড়ের পর: <span id="st-net">৳0</span> | লাভ: <span id="st-profit" class="profit-text profit-val">৳0</span>
     </div>
-    <div class="row c2">
+    <div class="row c3">
+      <input id="s-discount" type="number" placeholder="ছাড় (৳)" min="0" value="0" oninput="calcDue()" style="background:#fff8e1">
       <input id="s-paid" type="number" placeholder="নগদ পেলাম (৳)" min="0" oninput="calcDue()">
-      <input id="s-due" type="number" placeholder="বাকি রইলো (৳)" min="0" readonly style="background:#fff3e0">
+      <input id="s-due" type="number" placeholder="বাকি (৳)" min="0" readonly style="background:#fff3e0">
     </div>
     <button class="primary" onclick="recordSale()">✅ বিক্রয় সংরক্ষণ করো</button>
   </div>
@@ -312,7 +313,7 @@ td{padding:9px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
 
 <script>
 // Cloudflare Worker proxy দিয়ে Google Sheets-এ data save/load করো
-const API = 'https://script.google.com/macros/s/AKfycbyENClgBhWyHtJHKh5AR1RVZp28xC12KEv28KqqCbDl0Ip3FsV_WWO2szkS-J50BX7M/exec';
+const API = 'https://script.google.com/macros/s/AKfycbyv-3UwUliwGRS7UlKbJBSJpwijdxze79wh7ndXwOgkx0CIWjz7LJjAahZLip4wYPkY/exec';
 
 let products = [], sales = [], customers = [], payments = [], expenses = [], capital = [];
 let selectedRating = 0;
@@ -323,16 +324,25 @@ function saveQueue(){ localStorage.setItem('offlineQueue', JSON.stringify(offlin
 
 async function apiPost(body){
   saveLocal();
+  const action = body.action;
+  const params = {action};
+  if(action==='saveProducts')   params.products = body.products;
+  if(action==='addSale')        params.sale = body.sale;
+  if(action==='deleteProduct')  params.id = body.id;
+  if(action==='saveCustomer')   params.customer = body.customer;
+  if(action==='deleteCustomer') params.id = body.id;
+  if(action==='addPayment')     params.payment = body.payment;
+  if(action==='addExpense')     params.expense = body.expense;
+  if(action==='addCapital')     params.entry = body.entry;
+  if(action==='deleteExpense')  params.id = body.id;
+  if(action==='deleteCapital')  params.id = body.id;
   if(!isOnline()){
     offlineQueue.push(body); saveQueue(); updateSyncBadge(); return;
   }
   try{
-    const res = await fetch(API, { method:'POST', body: JSON.stringify(body) });
-    const data = await res.json();
-    if(data && data.error){ throw new Error(data.error); }
+    await fetch(buildUrl(params));
   }catch(e){
     offlineQueue.push(body); saveQueue(); updateSyncBadge();
-    showMsg('sync-msg','সার্ভারে সেভ করা যায়নি, ইন্টারনেট এলে আবার চেষ্টা হবে','error');
   }
 }
 
@@ -341,9 +351,19 @@ async function syncQueue(){
   const queue=[...offlineQueue]; offlineQueue=[]; saveQueue();
   for(const body of queue){
     try{
-      const res = await fetch(API, { method:'POST', body: JSON.stringify(body) });
-      const data = await res.json();
-      if(data && data.error){ throw new Error(data.error); }
+      const action=body.action;
+      const params={action};
+      if(action==='saveProducts')   params.products=body.products;
+      if(action==='addSale')        params.sale=body.sale;
+      if(action==='deleteProduct')  params.id=body.id;
+      if(action==='saveCustomer')   params.customer=body.customer;
+      if(action==='deleteCustomer') params.id=body.id;
+      if(action==='addPayment')     params.payment=body.payment;
+      if(action==='addExpense')     params.expense=body.expense;
+      if(action==='addCapital')     params.entry=body.entry;
+      if(action==='deleteExpense')  params.id=body.id;
+      if(action==='deleteCapital')  params.id=body.id;
+      await fetch(buildUrl(params));
     }catch(e){ offlineQueue.push(body); }
   }
   saveQueue(); updateSyncBadge();
@@ -354,7 +374,6 @@ async function syncQueue(){
 }
 function saveLocal(){
   try{
-    localStorage.setItem('med_products', JSON.stringify(products));
     localStorage.setItem('med_sales', JSON.stringify(sales));
     localStorage.setItem('med_customers', JSON.stringify(customers));
     localStorage.setItem('med_payments', JSON.stringify(payments));
@@ -751,9 +770,11 @@ function calcSaleTotal(){
   if(total>0){
     document.getElementById('sale-total').style.display='flex';
     document.getElementById('st-total').textContent=fmt(total);
-    document.getElementById('st-profit').textContent=fmt(profit);
-    // by default assume full cash paid, user can edit to add due
-    document.getElementById('s-paid').value = total;
+    const discount=parseFloat(document.getElementById('s-discount').value)||0;
+    const net=Math.max(0,total-discount);
+    document.getElementById('st-net').textContent=fmt(net);
+    document.getElementById('st-profit').textContent=fmt(profit-discount);
+    document.getElementById('s-paid').value = net;
     document.getElementById('s-due').value = 0;
   } else {
     document.getElementById('sale-total').style.display='none';
@@ -763,10 +784,12 @@ function calcSaleTotal(){
 
 function calcDue(){
   const total = window.currentSaleTotal || 0;
-  let paid = parseFloat(document.getElementById('s-paid').value) || 0;
-  if(paid > total) paid = total;
-  const due = total - paid;
-  document.getElementById('s-due').value = due;
+  const discount = parseFloat(document.getElementById('s-discount').value)||0;
+  const net = Math.max(0, total - discount);
+  document.getElementById('st-net').textContent = fmt(net);
+  let paid = parseFloat(document.getElementById('s-paid').value)||0;
+  if(paid > net) paid = net;
+  document.getElementById('s-due').value = Math.max(0, net - paid);
 }
 
 async function recordSale(){
@@ -789,16 +812,19 @@ async function recordSale(){
   if(!valid)return;
   if(!items.length){showMsg('sale-msg','কমপক্ষে একটি প্রোডাক্ট যোগ করো','error');return;}
   const total = window.currentSaleTotal || 0;
-  const paid = parseFloat(document.getElementById('s-paid').value) || total;
+  const discount = parseFloat(document.getElementById('s-discount').value)||0;
+  const net = Math.max(0, total - discount);
+  const paid = parseFloat(document.getElementById('s-paid').value) || net;
   const due  = parseFloat(document.getElementById('s-due').value) || 0;
   if(due>0 && !custId){showMsg('sale-msg','বাকি রাখতে হলে আগে ফার্মেসি/কাস্টমার বাছাই করতে হবে তালিকা থেকে','error');return;}
-  const sale={id:Date.now(),date:new Date().toISOString(),buyer:buyerName,buyerId:custId||'',items,paidAmount:paid,dueAmount:due};
+  const sale={id:Date.now(),date:new Date().toISOString(),buyer:buyerName,buyerId:custId||'',items,paidAmount:paid,dueAmount:due,discount};
   items.forEach(item=>{const p=products.find(pr=>pr.id===item.productId);if(p)p.qty-=item.qty;});
   sales.push(sale); lastSale=sale;
   await apiPost({action:'addSale',sale});
-  showMsg('sale-msg', due>0 ? `বিক্রয় সংরক্ষিত ✓ — ${fmt(due)} বাকি রইলো` : 'বিক্রয় সংরক্ষিত হয়েছে ✓','success');
+  showMsg('sale-msg', due>0 ? `বিক্রয় সংরক্ষিত ✓ — ${fmt(due)} বাকি রইলো` : discount>0 ? `বিক্রয় সংরক্ষিত ✓ — ${fmt(discount)} ছাড় দেওয়া হয়েছে` : 'বিক্রয় সংরক্ষিত হয়েছে ✓','success');
   document.getElementById('s-customer').value='';
   document.getElementById('s-buyer').value='';
+  document.getElementById('s-discount').value='0';
   document.getElementById('s-paid').value='';
   document.getElementById('s-due').value='';
   document.getElementById('sale-items').innerHTML='';
@@ -849,14 +875,14 @@ function showBill(saleId){
     <td style="text-align:right">${fmt(i.sellPrice*i.qty)}</td></tr>`).join('');
   document.getElementById('bill-total-amt').textContent=fmt(total);
   const due=Number(s.dueAmount||0);
+  const discount=Number(s.discount||0);
   const paidRow=document.getElementById('bill-paid-row');
-  if(due>0){
-    paidRow.style.display='block';
-    paidRow.innerHTML=`<div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0"><span>নগদ পরিশোধ</span><strong>${fmt(s.paidAmount||0)}</strong></div>
+  let extraInfo='';
+  if(discount>0) extraInfo+=`<div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0;color:#e65100"><span>ছাড়</span><strong>-${fmt(discount)}</strong></div>`;
+  if(due>0) extraInfo+=`<div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0"><span>নগদ পরিশোধ</span><strong>${fmt(s.paidAmount||0)}</strong></div>
     <div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0;color:#c62828"><span>বাকি</span><strong>${fmt(due)}</strong></div>`;
-  } else {
-    paidRow.style.display='none';
-  }
+  if(extraInfo){ paidRow.style.display='block'; paidRow.innerHTML=extraInfo; }
+  else paidRow.style.display='none';
   document.getElementById('bill-modal').classList.add('active');
 }
 function closeBill(){ document.getElementById('bill-modal').classList.remove('active'); }
