@@ -189,10 +189,11 @@ td{padding:9px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
   <div class="card">
     <h3>💰 মূলধন / উত্তোলন যোগ করো</h3>
     <div id="capital-msg" class="msg"></div>
-    <select id="cap-type" style="margin-bottom:8px">
-      <option value="মূলধন বিনিয়োগ">💵 মূলধন বিনিয়োগ (নতুন টাকা ঢাললে)</option>
-      <option value="মালিকের উত্তোলন">💸 মালিকের উত্তোলন (সংসারে নিলে)</option>
-    </select>
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <button id="cap-btn-invest" onclick="setCapType('মূলধন বিনিয়োগ')" style="flex:1;padding:8px;font-size:13px;border:1px solid #1565c0;border-radius:8px;background:#1565c0;color:#fff;cursor:pointer">💵 মূলধন বিনিয়োগ</button>
+      <button id="cap-btn-withdraw" onclick="setCapType('মালিকের উত্তোলন')" style="flex:1;padding:8px;font-size:13px;border:1px solid #ddd;border-radius:8px;background:#fff;color:#555;cursor:pointer">💸 উত্তোলন</button>
+    </div>
+    <input type="hidden" id="cap-type" value="মূলধন বিনিয়োগ">
     <div class="row c2">
       <input id="cap-amount" type="number" placeholder="পরিমাণ (৳)" min="0">
       <input id="cap-date" type="date">
@@ -205,12 +206,13 @@ td{padding:9px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
   <div class="card">
     <h3>🚗 ব্যবসার খরচ যোগ করো</h3>
     <div id="expense-msg" class="msg"></div>
-    <select id="exp-type" style="margin-bottom:8px">
-      <option value="পরিবহন">🚌 পরিবহন</option>
-      <option value="নাস্তা/খাওয়া">🍔 নাস্তা/খাওয়া</option>
-      <option value="মোবাইল রিচার্জ">📱 মোবাইল রিচার্জ</option>
-      <option value="অন্যান্য">📦 অন্যান্য</option>
-    </select>
+    <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">
+      <button class="exp-btn active-exp" onclick="setExpType(this,'পরিবহন')" style="padding:6px 10px;font-size:12px;border:1px solid #1565c0;border-radius:20px;background:#1565c0;color:#fff;cursor:pointer">🚌 পরিবহন</button>
+      <button class="exp-btn" onclick="setExpType(this,'নাস্তা/খাওয়া')" style="padding:6px 10px;font-size:12px;border:1px solid #ddd;border-radius:20px;background:#fff;color:#555;cursor:pointer">🍔 নাস্তা</button>
+      <button class="exp-btn" onclick="setExpType(this,'মোবাইল রিচার্জ')" style="padding:6px 10px;font-size:12px;border:1px solid #ddd;border-radius:20px;background:#fff;color:#555;cursor:pointer">📱 রিচার্জ</button>
+      <button class="exp-btn" onclick="setExpType(this,'অন্যান্য')" style="padding:6px 10px;font-size:12px;border:1px solid #ddd;border-radius:20px;background:#fff;color:#555;cursor:pointer">📦 অন্যান্য</button>
+    </div>
+    <input type="hidden" id="exp-type" value="পরিবহন">
     <div class="row c2">
       <input id="exp-amount" type="number" placeholder="পরিমাণ (৳)" min="0">
       <input id="exp-date" type="date">
@@ -922,7 +924,23 @@ function shareBillWhatsApp(){
 }
 
 // ---- REPORT ----
-// ---- EXPENSE & CAPITAL ----
+function setCapType(type){
+  document.getElementById('cap-type').value=type;
+  document.getElementById('cap-btn-invest').style.background=type==='মূলধন বিনিয়োগ'?'#1565c0':'#fff';
+  document.getElementById('cap-btn-invest').style.color=type==='মূলধন বিনিয়োগ'?'#fff':'#555';
+  document.getElementById('cap-btn-invest').style.borderColor=type==='মূলধন বিনিয়োগ'?'#1565c0':'#ddd';
+  document.getElementById('cap-btn-withdraw').style.background=type==='মালিকের উত্তোলন'?'#c62828':'#fff';
+  document.getElementById('cap-btn-withdraw').style.color=type==='মালিকের উত্তোলন'?'#fff':'#555';
+  document.getElementById('cap-btn-withdraw').style.borderColor=type==='মালিকের উত্তোলন'?'#c62828':'#ddd';
+}
+
+function setExpType(btn, type){
+  document.getElementById('exp-type').value=type;
+  document.querySelectorAll('.exp-btn').forEach(b=>{
+    b.style.background='#fff'; b.style.color='#555'; b.style.borderColor='#ddd';
+  });
+  btn.style.background='#1565c0'; btn.style.color='#fff'; btn.style.borderColor='#1565c0';
+}
 async function addExpenseEntry(){
   const type=document.getElementById('exp-type').value;
   const amount=parseFloat(document.getElementById('exp-amount').value);
