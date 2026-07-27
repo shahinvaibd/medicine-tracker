@@ -66,16 +66,16 @@ td{padding:9px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
 .customer-name{font-size:15px;font-weight:600;margin-bottom:4px}
 .customer-meta{font-size:12px;color:#888;margin-bottom:8px}
 /* Bill modal */
-.modal{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:200;padding:20px;overflow-y:auto}
+.modal{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:200;padding:12px;overflow-y:auto}
 .modal.active{display:flex;align-items:flex-start;justify-content:center}
-.modal-box{background:#fff;border-radius:12px;padding:20px;width:100%;max-width:420px;margin-top:20px}
-.bill-header{text-align:center;margin-bottom:16px;padding-bottom:12px;border-bottom:2px dashed #ddd}
-.bill-header h2{font-size:18px;font-weight:700;color:#1565c0}
-.bill-header p{font-size:13px;color:#888;margin-top:4px}
-.bill-table{width:100%;border-collapse:collapse;margin-bottom:12px}
-.bill-table th{background:#f5f5f5;padding:8px;font-size:13px;text-align:left}
-.bill-table td{padding:8px;font-size:13px;border-bottom:1px solid #f0f0f0}
-.bill-total{background:#1565c0;color:#fff;padding:12px;border-radius:8px;display:flex;justify-content:space-between;font-size:16px;font-weight:700;margin-bottom:12px}
+.modal-box{background:#fff;border-radius:12px;padding:14px;width:100%;max-width:420px;margin-top:10px;font-size:13px}
+.bill-header{text-align:center;margin-bottom:12px;padding-bottom:10px;border-bottom:2px dashed #ddd}
+.bill-header h2{font-size:15px;font-weight:700;color:#1565c0}
+.bill-header p{font-size:12px;color:#888;margin-top:2px}
+.bill-table{width:100%;border-collapse:collapse;margin-bottom:10px}
+.bill-table th{background:#f5f5f5;padding:6px;font-size:12px;text-align:left}
+.bill-table td{padding:6px;font-size:12px;border-bottom:1px solid #f0f0f0}
+.bill-total{background:#1565c0;color:#fff;padding:10px;border-radius:8px;display:flex;justify-content:space-between;font-size:14px;font-weight:700;margin-bottom:10px}
 </style>
 </head>
 <body class="profit-hidden">
@@ -299,7 +299,7 @@ td{padding:9px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
 <!-- PAY DUE MODAL -->
 <div class="modal" id="pay-modal">
   <div class="modal-box">
-    <h3 style="margin-bottom:14px">💵 বাকি পরিশোধ এন্ট্রি</h3>
+    <h3 style="margin-bottom:10px;font-size:14px">💵 বাকি পরিশোধ এন্ট্রি</h3>
     <div id="pay-msg" class="msg"></div>
     <div style="font-size:14px;margin-bottom:10px"><strong id="pay-cust-name"></strong> — মোট বাকি: <strong id="pay-cust-due" style="color:#c62828"></strong></div>
     <input type="hidden" id="pay-cust-id">
