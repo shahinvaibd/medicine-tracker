@@ -7,8 +7,8 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:sans-serif;background:#f5f5f5;color:#1a1a1a;font-size:15px}
-header{background:#1565c0;color:#fff;padding:14px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:100}
-header h1{font-size:17px;font-weight:600}
+header{background:#1565c0;color:#fff;padding:8px 12px;display:flex;align-items:center;gap:8px;position:sticky;top:0;z-index:100}
+header h1{font-size:14px;font-weight:600}
 .tab-bar{display:flex;background:#fff;border-top:1px solid #e0e0e0;position:fixed;bottom:0;left:0;right:0;z-index:99}
 .tab{flex:1;min-width:0;padding:8px 4px 6px;text-align:center;font-size:20px;color:#999;border:none;background:none;cursor:pointer;border-top:3px solid transparent}
 .tab.active{color:#1565c0;border-top-color:#1565c0}
@@ -82,13 +82,12 @@ td{padding:9px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
 
 
 <header>
-  <div style="font-size:22px">💊</div>
   <div style="flex:1">
-    <h1>মেডিসিন ব্যবসা ট্র্যাকার</h1>
-    <div id="today-date" style="font-size:12px;opacity:0.85;margin-top:2px"></div>
+    <h1>💊 মেডিসিন ব্যবসা ট্র্যাকার</h1>
+    <div id="today-date" style="font-size:11px;opacity:0.8"></div>
   </div>
-  <div id="sync-badge" style="display:none;background:#ff6f00;color:#fff;font-size:11px;padding:3px 8px;border-radius:20px;white-space:nowrap"></div>
-  <button id="profit-toggle-btn" class="sm" onclick="toggleProfitView()" style="flex-shrink:0">👁️ লাভ</button>
+  <div id="sync-badge" style="display:none;background:#ff6f00;color:#fff;font-size:11px;padding:2px 6px;border-radius:20px;white-space:nowrap"></div>
+  <button id="profit-toggle-btn" class="sm" onclick="toggleProfitView()" style="flex-shrink:0;font-size:12px;padding:4px 8px">👁️</button>
 </header>
 <div id="sync-msg" class="msg" style="margin:8px 12px 0;display:none"></div>
 
