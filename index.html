@@ -133,9 +133,12 @@ td{padding:9px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
   <div class="card">
     <h3>🛒 বিক্রয় এন্ট্রি</h3>
     <div id="sale-msg" class="msg"></div>
-    <select id="s-customer" onchange="onCustomerChange()">
-      <option value="">-- ফার্মেসি/কাস্টমার বাছাই করো --</option>
-    </select>
+    <div style="position:relative;margin-bottom:8px">
+      <input id="s-customer-search" placeholder="🔍 ফার্মেসি খোঁজো বা বাছাই করো..." autocomplete="off"
+        oninput="filterCustomers(this)" onfocus="showCustomerDropdown()" onblur="setTimeout(()=>hideCustomerDropdown(),200)">
+      <div id="s-customer-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #ddd;border-radius:8px;z-index:50;max-height:160px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,0.1)"></div>
+      <input type="hidden" id="s-customer" value="">
+    </div>
     <input id="s-buyer" placeholder="অথবা নতুন নাম লিখো">
     <div id="sale-items"></div>
     <button class="sm add-row" onclick="addSaleRow()">➕ আরেকটি প্রোডাক্ট যোগ করো</button>
@@ -686,20 +689,47 @@ function renderCustomers(){
 }
 
 function renderCustomerDropdown(){
-  const sel=document.getElementById('s-customer');
-  const val=sel.value;
-  sel.innerHTML='<option value="">-- ফার্মেসি/কাস্টমার বাছাই করো --</option>'+
-    customers.map(c=>`<option value="${c.id}">${c.name}${c.phone?' ('+c.phone+')':''}</option>`).join('');
-  sel.value=val;
+  // populate dropdown list
+  showCustomerDropdown();
 }
 
-function onCustomerChange(){
-  const id=document.getElementById('s-customer').value;
-  if(id){
-    const c=customers.find(x=>x.id==id);
-    if(c) document.getElementById('s-buyer').value='';
-  }
+function filterCustomers(input){
+  const q=input.value.toLowerCase().trim();
+  const dd=document.getElementById('s-customer-dropdown');
+  const filtered=q?customers.filter(c=>c.name.toLowerCase().includes(q)||( c.phone&&c.phone.includes(q))):customers;
+  renderCustomerDDList(filtered);
+  dd.style.display='block';
 }
+
+function showCustomerDropdown(){
+  const dd=document.getElementById('s-customer-dropdown');
+  renderCustomerDDList(customers);
+  dd.style.display=customers.length?'block':'none';
+}
+
+function hideCustomerDropdown(){
+  document.getElementById('s-customer-dropdown').style.display='none';
+}
+
+function renderCustomerDDList(list){
+  const dd=document.getElementById('s-customer-dropdown');
+  if(!list.length){dd.innerHTML='<div style="padding:10px;color:#aaa;font-size:13px">কোনো ফার্মেসি নেই</div>';return;}
+  dd.innerHTML=list.map(c=>`
+    <div onmousedown="selectCustomer('${c.id}','${c.name.replace(/'/g,"\\'")}') "
+      style="padding:10px 12px;cursor:pointer;border-bottom:1px solid #f5f5f5;font-size:13px">
+      <div style="font-weight:600">${c.name}</div>
+      ${c.phone?`<div style="font-size:11px;color:#888">📞 ${c.phone}</div>`:''}
+    </div>`).join('');
+}
+
+function selectCustomer(id, name){
+  document.getElementById('s-customer').value=id;
+  document.getElementById('s-customer-search').value=name;
+  document.getElementById('s-buyer').value='';
+  hideCustomerDropdown();
+}
+
+function onCustomerChange(){}
 
 // ---- SALE ----
 function addSaleRow(){
@@ -824,6 +854,7 @@ async function recordSale(){
   await apiPost({action:'addSale',sale});
   showMsg('sale-msg', due>0 ? `বিক্রয় সংরক্ষিত ✓ — ${fmt(due)} বাকি রইলো` : discount>0 ? `বিক্রয় সংরক্ষিত ✓ — ${fmt(discount)} ছাড় দেওয়া হয়েছে` : 'বিক্রয় সংরক্ষিত হয়েছে ✓','success');
   document.getElementById('s-customer').value='';
+  document.getElementById('s-customer-search').value='';
   document.getElementById('s-buyer').value='';
   document.getElementById('s-discount').value='0';
   document.getElementById('s-paid').value='';
