@@ -540,7 +540,10 @@ async function deleteProduct(id){
   id=parseInt(id);
   if(!confirm('মুছে ফেলবে?'))return;
   products=products.filter(p=>p.id!==id);
-  await apiPost({action:'deleteProduct',id}); renderStock();
+  saveLocal();
+  // পুরো updated list save করো যাতে sync-এ ফিরে না আসে
+  await apiPost({action:'saveProducts', products});
+  renderStock();
 }
 
 document.addEventListener('click',function(e){
