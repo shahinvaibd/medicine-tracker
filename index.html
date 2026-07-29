@@ -528,7 +528,7 @@ function renderStock(){
   const tb=document.getElementById('stock-table');
   if(!products.length){tb.innerHTML='<div class="empty">এখনো কোনো প্রোডাক্ট নেই</div>';return;}
   tb.innerHTML='<table><thead><tr><th>প্রোডাক্ট</th><th style="text-align:center">স্টক</th><th>অবস্থা</th><th></th></tr></thead><tbody>'+
-    products.map(p=>{
+    [...products].sort((a,b)=>a.name.localeCompare(b.name)).map(p=>{
       const profit=p.buyPrice>0?((p.sellPrice-p.buyPrice)/p.buyPrice*100).toFixed(0):'0';
       const status=p.qty===0?'<span class="badge out">শেষ</span>':p.qty<=p.minQty?'<span class="badge low">কম</span>':'<span class="badge ok">আছে</span>';
       return`<tr><td><strong>${p.name}</strong><br><span style="font-size:11px;color:#888">${fmt(p.buyPrice)} → ${fmt(p.sellPrice)} | লাভ ${profit}%</span></td>
