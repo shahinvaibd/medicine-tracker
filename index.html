@@ -449,15 +449,23 @@ async function init(){
   if(isOnline()){
     try{
       await syncQueue();
-      await apiGet();
-      // চুপচাপ UI আপডেট করো
+      const res = await fetch(buildUrl({action:'getAll'}));
+      const data = await res.json();
+      // শুধু তখনই update করো যখন Sheets-এ বেশি products আছে
+      // নইলে locally delete/update করা হারিয়ে যাবে
+      if(data.products && data.products.length >= products.length){
+        products  = data.products;
+      }
+      sales     = data.sales     || sales;
+      customers = data.customers || customers;
+      payments  = data.payments  || payments;
+      expenses  = data.expenses  || expenses;
+      capital   = data.capital   || capital;
+      saveLocal();
       renderStock(); renderCustomerDropdown();
-      // যে ট্যাবে আছো সেটা refresh করো
       const activeTab = document.querySelector('.tab.active');
       if(activeTab) showTab(activeTab.dataset.tab, activeTab);
-    } catch(e){
-      // ইন্টারনেট সমস্যা হলে local data-ই থাকবে
-    }
+    } catch(e){}
   }
 }
 
@@ -519,6 +527,7 @@ async function addProduct(){
     showMsg('stock-msg',name+' যোগ হয়েছে ✓','success');
   }
   await apiPost({action:'saveProducts',products});
+  saveLocal();
   ['p-name','p-buy','p-sell','p-qty','p-unit','p-min'].forEach(id=>{document.getElementById(id).value='';});
   renderStock();
 }
