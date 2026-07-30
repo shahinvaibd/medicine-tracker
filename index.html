@@ -550,10 +550,21 @@ async function deleteProduct(id){
   if(!confirm('মুছে ফেলবে?'))return;
   products=products.filter(p=>p.id!==id);
   saveLocal();
-  syncLock=true;
-  await apiPost({action:'saveProducts', products});
-  setTimeout(()=>{ syncLock=false; }, 5000); // ৫ সেকেন্ড পর sync আবার চালু
   renderStock();
+  syncLock=true;
+  try{
+    // Sheets-এ সরাসরি save করো এবং response wait করো
+    const url=buildUrl({action:'saveProducts', products});
+    await fetch(url);
+    // ২ সেকেন্ড পর Sheets থেকে fresh data আনো
+    await new Promise(r=>setTimeout(r,2000));
+    const res=await fetch(buildUrl({action:'getAll'}));
+    const data=await res.json();
+    if(data.products) products=data.products;
+    saveLocal();
+    renderStock();
+  }catch(e){}
+  syncLock=false;
 }
 
 document.addEventListener('click',function(e){
