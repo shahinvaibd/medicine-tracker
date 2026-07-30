@@ -320,6 +320,7 @@ td{padding:9px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
 const API = 'https://script.google.com/macros/s/AKfycbyv-3UwUliwGRS7UlKbJBSJpwijdxze79wh7ndXwOgkx0CIWjz7LJjAahZLip4wYPkY/exec';
 
 let products = [], sales = [], customers = [], payments = [], expenses = [], capital = [];
+let syncLock = false; // delete/save চলাকালীন background sync বন্ধ রাখবে
 let selectedRating = 0;
 let currentFilter = 'all';
 let lastSale = null;
@@ -449,18 +450,20 @@ async function init(){
   if(isOnline()){
     try{
       await syncQueue();
-      const res = await fetch(buildUrl({action:'getAll'}));
-      const data = await res.json();
-      if(data.products) products = data.products;
-      if(data.sales)    sales    = data.sales;
-      if(data.customers)customers= data.customers;
-      if(data.payments) payments = data.payments;
-      if(data.expenses) expenses = data.expenses;
-      if(data.capital)  capital  = data.capital;
-      saveLocal();
-      renderStock(); renderCustomerDropdown();
-      const activeTab = document.querySelector('.tab.active');
-      if(activeTab) showTab(activeTab.dataset.tab, activeTab);
+      if(!syncLock){
+        const res = await fetch(buildUrl({action:'getAll'}));
+        const data = await res.json();
+        if(data.products) products = data.products;
+        if(data.sales)    sales    = data.sales;
+        if(data.customers)customers= data.customers;
+        if(data.payments) payments = data.payments;
+        if(data.expenses) expenses = data.expenses;
+        if(data.capital)  capital  = data.capital;
+        saveLocal();
+        renderStock(); renderCustomerDropdown();
+        const activeTab = document.querySelector('.tab.active');
+        if(activeTab) showTab(activeTab.dataset.tab, activeTab);
+      }
     } catch(e){}
   }
 }
@@ -547,8 +550,9 @@ async function deleteProduct(id){
   if(!confirm('মুছে ফেলবে?'))return;
   products=products.filter(p=>p.id!==id);
   saveLocal();
-  // পুরো updated list save করো যাতে sync-এ ফিরে না আসে
+  syncLock=true;
   await apiPost({action:'saveProducts', products});
+  setTimeout(()=>{ syncLock=false; }, 5000); // ৫ সেকেন্ড পর sync আবার চালু
   renderStock();
 }
 
