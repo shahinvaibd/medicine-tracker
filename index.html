@@ -451,16 +451,12 @@ async function init(){
       await syncQueue();
       const res = await fetch(buildUrl({action:'getAll'}));
       const data = await res.json();
-      // শুধু তখনই update করো যখন Sheets-এ বেশি products আছে
-      // নইলে locally delete/update করা হারিয়ে যাবে
-      if(data.products && data.products.length >= products.length){
-        products  = data.products;
-      }
-      sales     = data.sales     || sales;
-      customers = data.customers || customers;
-      payments  = data.payments  || payments;
-      expenses  = data.expenses  || expenses;
-      capital   = data.capital   || capital;
+      if(data.products) products = data.products;
+      if(data.sales)    sales    = data.sales;
+      if(data.customers)customers= data.customers;
+      if(data.payments) payments = data.payments;
+      if(data.expenses) expenses = data.expenses;
+      if(data.capital)  capital  = data.capital;
       saveLocal();
       renderStock(); renderCustomerDropdown();
       const activeTab = document.querySelector('.tab.active');
