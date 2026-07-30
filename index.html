@@ -329,23 +329,16 @@ function saveQueue(){ localStorage.setItem('offlineQueue', JSON.stringify(offlin
 
 async function apiPost(body){
   saveLocal();
-  const action = body.action;
-  const params = {action};
-  if(action==='saveProducts')   params.products = body.products;
-  if(action==='addSale')        params.sale = body.sale;
-  if(action==='deleteProduct')  params.id = body.id;
-  if(action==='saveCustomer')   params.customer = body.customer;
-  if(action==='deleteCustomer') params.id = body.id;
-  if(action==='addPayment')     params.payment = body.payment;
-  if(action==='addExpense')     params.expense = body.expense;
-  if(action==='addCapital')     params.entry = body.entry;
-  if(action==='deleteExpense')  params.id = body.id;
-  if(action==='deleteCapital')  params.id = body.id;
   if(!isOnline()){
     offlineQueue.push(body); saveQueue(); updateSyncBadge(); return;
   }
   try{
-    await fetch(buildUrl(params));
+    await fetch(API, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body),
+      redirect: 'follow'
+    });
   }catch(e){
     offlineQueue.push(body); saveQueue(); updateSyncBadge();
   }
@@ -356,19 +349,12 @@ async function syncQueue(){
   const queue=[...offlineQueue]; offlineQueue=[]; saveQueue();
   for(const body of queue){
     try{
-      const action=body.action;
-      const params={action};
-      if(action==='saveProducts')   params.products=body.products;
-      if(action==='addSale')        params.sale=body.sale;
-      if(action==='deleteProduct')  params.id=body.id;
-      if(action==='saveCustomer')   params.customer=body.customer;
-      if(action==='deleteCustomer') params.id=body.id;
-      if(action==='addPayment')     params.payment=body.payment;
-      if(action==='addExpense')     params.expense=body.expense;
-      if(action==='addCapital')     params.entry=body.entry;
-      if(action==='deleteExpense')  params.id=body.id;
-      if(action==='deleteCapital')  params.id=body.id;
-      await fetch(buildUrl(params));
+      await fetch(API, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(body),
+        redirect:'follow'
+      });
     }catch(e){ offlineQueue.push(body); }
   }
   saveQueue(); updateSyncBadge();
@@ -553,16 +539,17 @@ async function deleteProduct(id){
   renderStock();
   syncLock=true;
   try{
-    // Sheets-এ সরাসরি save করো এবং response wait করো
-    const url=buildUrl({action:'saveProducts', products});
-    await fetch(url);
-    // ২ সেকেন্ড পর Sheets থেকে fresh data আনো
+    await fetch(API, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:'deleteProduct', id}),
+      redirect:'follow'
+    });
     await new Promise(r=>setTimeout(r,2000));
     const res=await fetch(buildUrl({action:'getAll'}));
     const data=await res.json();
     if(data.products) products=data.products;
-    saveLocal();
-    renderStock();
+    saveLocal(); renderStock();
   }catch(e){}
   syncLock=false;
 }
