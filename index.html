@@ -326,19 +326,28 @@ let lastSale = null;
 let offlineQueue = JSON.parse(localStorage.getItem('offlineQueue')||'[]');
 function saveQueue(){ localStorage.setItem('offlineQueue', JSON.stringify(offlineQueue)); }
 
+// চলমান (এখনও সার্ভারে পাঠানো শেষ হয়নি এমন) request-এর সংখ্যা গোনা হয়,
+// যাতে সব সেভ শেষ না হওয়া পর্যন্ত পেজ বন্ধ/রিফ্রেশ করলে সতর্ক করা যায়
+let pendingSaves = 0;
+
 // ---- POST দিয়ে সেভ করা হয় (GET-এর URL length limit ও CORS সমস্যা এড়াতে) ----
 async function apiPost(body){
   saveLocal();
   if(!isOnline()){
-    offlineQueue.push(body); saveQueue(); updateSyncBadge(); return;
+    offlineQueue.push(body); saveQueue(); updateSyncBadge(); return false;
   }
+  pendingSaves++;
   try{
     const res = await fetch(API, { method:'POST', body: JSON.stringify(body) });
     const data = await res.json();
     if(data && data.error){ throw new Error(data.error); }
+    return true;
   }catch(e){
     offlineQueue.push(body); saveQueue(); updateSyncBadge();
     showMsg('sync-msg','সার্ভারে সেভ করা যায়নি, ইন্টারনেট এলে আবার চেষ্টা হবে','error');
+    return false;
+  } finally {
+    pendingSaves--;
   }
 }
 
@@ -433,8 +442,13 @@ async function init(){
       await syncQueue();
       const res = await fetch(buildUrl({action:'getAll'}));
       const data = await res.json();
-      // এখন প্রতিটা প্রোডাক্ট আলাদাভাবে সেভ হয় বলে সবসময় Sheets-এর ডেটাকেই সঠিক ধরা যায়
-      products  = data.products  || products;
+      // নিরাপত্তা: সার্ভারে যদি লোকালের চেয়ে কম প্রোডাক্ট দেখায় (নেটওয়ার্ক/সিঙ্ক সমস্যায়),
+      // তাহলে লোকাল ডেটা ওভাররাইট কোরো না — এতে সদ্য যোগ করা এন্ট্রি হারানো থেকে বাঁচবে
+      if(data.products && data.products.length >= products.length){
+        products = data.products;
+      } else if(data.products && data.products.length < products.length){
+        showMsg('sync-msg','⚠️ সতর্কতা: সার্ভারে প্রোডাক্ট কম দেখাচ্ছে, লোকাল ডেটা সংরক্ষিত রাখা হলো — একটু পরে আবার চেষ্টা করুন','error');
+      }
       sales     = data.sales     || sales;
       customers = data.customers || customers;
       payments  = data.payments  || payments;
@@ -454,7 +468,14 @@ window.addEventListener('online', ()=>{
   setTimeout(syncQueue, 1000);
 });
 
-window.addEventListener('beforeunload', ()=>{ saveLocal(); });
+window.addEventListener('beforeunload', (e)=>{
+  saveLocal();
+  if(pendingSaves > 0 || offlineQueue.length > 0){
+    e.preventDefault();
+    e.returnValue = 'কিছু ডেটা এখনো সার্ভারে সেভ হচ্ছে। এখনই পেজ বন্ধ/রিফ্রেশ করলে তা হারিয়ে যেতে পারে।';
+    return e.returnValue;
+  }
+});
 
 function showMsg(id,text,type){
   const el=document.getElementById(id);
@@ -502,16 +523,21 @@ async function addProduct(){
   if(ex>=0){
     products[ex].qty+=qty; products[ex].buyPrice=buy; products[ex].sellPrice=sell; products[ex].minQty=min;
     savedProduct=products[ex];
-    showMsg('stock-msg',name+' আপডেট হয়েছে ✓','success');
   } else {
     savedProduct={id:Date.now(),name,buyPrice:buy,sellPrice:sell,qty,unit,minQty:min};
     products.push(savedProduct);
-    showMsg('stock-msg',name+' যোগ হয়েছে ✓','success');
   }
+  renderStock(); // স্ক্রিনে সাথে সাথেই দেখাও, কিন্তু "✓" মেসেজ এখনই দিও না
+  showMsg('stock-msg', name+' সংরক্ষণ হচ্ছে...', 'success');
   // শুধু এই একটা প্রোডাক্ট পাঠাও, পুরো লিস্ট না — এতে যত বেশি প্রোডাক্টই থাকুক,
   // প্রতিটা এন্ট্রি সমান দ্রুত সেভ হবে এবং ডুপ্লিকেট/হারানোর সমস্যা হবে না
-  await apiPost({action:'saveProduct',product:savedProduct});
+  const ok = await apiPost({action:'saveProduct',product:savedProduct});
   saveLocal();
+  if(ok){
+    showMsg('stock-msg', name+(ex>=0?' আপডেট হয়েছে ✓':' যোগ হয়েছে ✓'), 'success');
+  } else {
+    showMsg('stock-msg', name+' — সার্ভারে সেভ হয়নি, অটো-রিট্রাই হবে (পেজ বন্ধ করবেন না)', 'error');
+  }
   ['p-name','p-buy','p-sell','p-qty','p-unit','p-min'].forEach(id=>{document.getElementById(id).value='';});
   renderStock();
 }
