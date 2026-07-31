@@ -317,30 +317,28 @@ td{padding:9px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
 
 <script>
 // Cloudflare Worker proxy দিয়ে Google Sheets-এ data save/load করো
-const API = 'https://script.google.com/macros/s/AKfycbyv-3UwUliwGRS7UlKbJBSJpwijdxze79wh7ndXwOgkx0CIWjz7LJjAahZLip4wYPkY/exec';
+const API = 'https://script.google.com/macros/s/AKfycbyENClgBhWyHtJHKh5AR1RVZp28xC12KEv28KqqCbDl0Ip3FsV_WWO2szkS-J50BX7M/exec';
 
 let products = [], sales = [], customers = [], payments = [], expenses = [], capital = [];
-let syncLock = false; // delete/save চলাকালীন background sync বন্ধ রাখবে
 let selectedRating = 0;
 let currentFilter = 'all';
 let lastSale = null;
 let offlineQueue = JSON.parse(localStorage.getItem('offlineQueue')||'[]');
 function saveQueue(){ localStorage.setItem('offlineQueue', JSON.stringify(offlineQueue)); }
 
+// ---- POST দিয়ে সেভ করা হয় (GET-এর URL length limit ও CORS সমস্যা এড়াতে) ----
 async function apiPost(body){
   saveLocal();
   if(!isOnline()){
     offlineQueue.push(body); saveQueue(); updateSyncBadge(); return;
   }
   try{
-    await fetch(API, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(body),
-      redirect: 'follow'
-    });
+    const res = await fetch(API, { method:'POST', body: JSON.stringify(body) });
+    const data = await res.json();
+    if(data && data.error){ throw new Error(data.error); }
   }catch(e){
     offlineQueue.push(body); saveQueue(); updateSyncBadge();
+    showMsg('sync-msg','সার্ভারে সেভ করা যায়নি, ইন্টারনেট এলে আবার চেষ্টা হবে','error');
   }
 }
 
@@ -349,12 +347,9 @@ async function syncQueue(){
   const queue=[...offlineQueue]; offlineQueue=[]; saveQueue();
   for(const body of queue){
     try{
-      await fetch(API, {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify(body),
-        redirect:'follow'
-      });
+      const res = await fetch(API, { method:'POST', body: JSON.stringify(body) });
+      const data = await res.json();
+      if(data && data.error){ throw new Error(data.error); }
     }catch(e){ offlineQueue.push(body); }
   }
   saveQueue(); updateSyncBadge();
@@ -436,20 +431,19 @@ async function init(){
   if(isOnline()){
     try{
       await syncQueue();
-      if(!syncLock){
-        const res = await fetch(buildUrl({action:'getAll'}));
-        const data = await res.json();
-        if(data.products) products = data.products;
-        if(data.sales)    sales    = data.sales;
-        if(data.customers)customers= data.customers;
-        if(data.payments) payments = data.payments;
-        if(data.expenses) expenses = data.expenses;
-        if(data.capital)  capital  = data.capital;
-        saveLocal();
-        renderStock(); renderCustomerDropdown();
-        const activeTab = document.querySelector('.tab.active');
-        if(activeTab) showTab(activeTab.dataset.tab, activeTab);
-      }
+      const res = await fetch(buildUrl({action:'getAll'}));
+      const data = await res.json();
+      // এখন প্রতিটা প্রোডাক্ট আলাদাভাবে সেভ হয় বলে সবসময় Sheets-এর ডেটাকেই সঠিক ধরা যায়
+      products  = data.products  || products;
+      sales     = data.sales     || sales;
+      customers = data.customers || customers;
+      payments  = data.payments  || payments;
+      expenses  = data.expenses  || expenses;
+      capital   = data.capital   || capital;
+      saveLocal();
+      renderStock(); renderCustomerDropdown();
+      const activeTab = document.querySelector('.tab.active');
+      if(activeTab) showTab(activeTab.dataset.tab, activeTab);
     } catch(e){}
   }
 }
@@ -504,14 +498,19 @@ async function addProduct(){
   const min=parseInt(document.getElementById('p-min').value)||5;
   if(!name||isNaN(buy)||isNaN(sell)||isNaN(qty)){showMsg('stock-msg','সব তথ্য সঠিকভাবে পূরণ করো','error');return;}
   const ex=products.findIndex(p=>p.name.toLowerCase()===name.toLowerCase());
+  let savedProduct;
   if(ex>=0){
     products[ex].qty+=qty; products[ex].buyPrice=buy; products[ex].sellPrice=sell; products[ex].minQty=min;
+    savedProduct=products[ex];
     showMsg('stock-msg',name+' আপডেট হয়েছে ✓','success');
   } else {
-    products.push({id:Date.now(),name,buyPrice:buy,sellPrice:sell,qty,unit,minQty:min});
+    savedProduct={id:Date.now(),name,buyPrice:buy,sellPrice:sell,qty,unit,minQty:min};
+    products.push(savedProduct);
     showMsg('stock-msg',name+' যোগ হয়েছে ✓','success');
   }
-  await apiPost({action:'saveProducts',products});
+  // শুধু এই একটা প্রোডাক্ট পাঠাও, পুরো লিস্ট না — এতে যত বেশি প্রোডাক্টই থাকুক,
+  // প্রতিটা এন্ট্রি সমান দ্রুত সেভ হবে এবং ডুপ্লিকেট/হারানোর সমস্যা হবে না
+  await apiPost({action:'saveProduct',product:savedProduct});
   saveLocal();
   ['p-name','p-buy','p-sell','p-qty','p-unit','p-min'].forEach(id=>{document.getElementById(id).value='';});
   renderStock();
@@ -536,22 +535,9 @@ async function deleteProduct(id){
   if(!confirm('মুছে ফেলবে?'))return;
   products=products.filter(p=>p.id!==id);
   saveLocal();
+  // শুধু এই একটা id মুছে ফেলার নির্দেশ পাঠাও, পুরো লিস্ট রিরাইট না
+  await apiPost({action:'deleteProduct', id});
   renderStock();
-  syncLock=true;
-  try{
-    await fetch(API, {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({action:'deleteProduct', id}),
-      redirect:'follow'
-    });
-    await new Promise(r=>setTimeout(r,2000));
-    const res=await fetch(buildUrl({action:'getAll'}));
-    const data=await res.json();
-    if(data.products) products=data.products;
-    saveLocal(); renderStock();
-  }catch(e){}
-  syncLock=false;
 }
 
 document.addEventListener('click',function(e){
@@ -860,7 +846,10 @@ async function recordSale(){
   const due  = parseFloat(document.getElementById('s-due').value) || 0;
   if(due>0 && !custId){showMsg('sale-msg','বাকি রাখতে হলে আগে ফার্মেসি/কাস্টমার বাছাই করতে হবে তালিকা থেকে','error');return;}
   const sale={id:Date.now(),date:new Date().toISOString(),buyer:buyerName,buyerId:custId||'',items,paidAmount:paid,dueAmount:due,discount};
-  items.forEach(item=>{const p=products.find(pr=>pr.id===item.productId);if(p)p.qty-=item.qty;});
+  items.forEach(item=>{
+    const p=products.find(pr=>pr.id===item.productId);
+    if(p){ p.qty-=item.qty; apiPost({action:'saveProduct', product:p}); } // স্টক আপডেটও একক প্রোডাক্ট হিসেবে সেভ হয়
+  });
   sales.push(sale); lastSale=sale;
   await apiPost({action:'addSale',sale});
   showMsg('sale-msg', due>0 ? `বিক্রয় সংরক্ষিত ✓ — ${fmt(due)} বাকি রইলো` : discount>0 ? `বিক্রয় সংরক্ষিত ✓ — ${fmt(discount)} ছাড় দেওয়া হয়েছে` : 'বিক্রয় সংরক্ষিত হয়েছে ✓','success');
