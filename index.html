@@ -484,7 +484,7 @@ function showMsg(id,text,type){
   el.className='msg '+type; el.textContent=text;
   setTimeout(()=>{el.className='msg';el.textContent=''},3500);
 }
-function fmt(n){return '৳'+Math.round(n).toLocaleString('en-IN')}
+function fmt(n){ const r=Math.round(n); return (r<0?'-':'')+'৳'+Math.abs(r).toLocaleString('en-IN'); }
 
 async function manualSync(){
   const btn = document.getElementById('manual-sync-btn');
@@ -1103,15 +1103,18 @@ function renderBusinessOverview(){
   const totalSalesProfit = sales.reduce((a,s)=>a+s.items.reduce((x,i)=>x+(i.sellPrice-i.buyPrice)*i.qty,0),0);
   const totalDue = sales.reduce((a,s)=>a+Number(s.dueAmount||0),0);
   const stockValue = products.reduce((a,p)=>a+p.buyPrice*p.qty,0);
-  const netProfit = totalSalesProfit - totalExpense;
+  const netProfit = totalSalesProfit - totalExpense - totalWithdrawal;
 
   const el=document.getElementById('business-overview');
   if(!el)return;
-  el.innerHTML=`
+  const warning = netProfit<0
+    ? `<div style="grid-column:1/-1;background:#ffebee;border:1px solid #ef9a9a;border-radius:8px;padding:10px;margin-bottom:8px;font-size:13px;color:#c62828;font-weight:600">⚠️ সতর্কতা: আপনি ব্যবসার লাভের চেয়ে বেশি উত্তোলন করেছেন — মূলধনে হাত পড়েছে (${fmt(netProfit)})</div>`
+    : '';
+  el.innerHTML= warning + `
     <div class="metric"><div class="metric-label">মোট মূলধন বিনিয়োগ</div><div class="metric-val" style="color:#1565c0">${fmt(totalCapital)}</div></div>
     <div class="metric"><div class="metric-label">মোট বিক্রয় লাভ</div><div class="metric-val profit-val green">${fmt(totalSalesProfit)}</div></div>
     <div class="metric"><div class="metric-label">মোট ব্যবসার খরচ</div><div class="metric-val red">${fmt(totalExpense)}</div></div>
-    <div class="metric"><div class="metric-label">প্রকৃত নিট লাভ</div><div class="metric-val profit-val green">${fmt(netProfit)}</div></div>
+    <div class="metric"><div class="metric-label">প্রকৃত নিট লাভ (উত্তোলনের পর)</div><div class="metric-val profit-val ${netProfit<0?'red':'green'}">${fmt(netProfit)}</div></div>
     <div class="metric"><div class="metric-label">মালিকের উত্তোলন</div><div class="metric-val" style="color:#e65100">${fmt(totalWithdrawal)}</div></div>
     <div class="metric"><div class="metric-label">স্টকে আটকা মূলধন</div><div class="metric-val" style="color:#555">${fmt(stockValue)}</div></div>
     <div class="metric"><div class="metric-label">মোট বাকি পাওনা</div><div class="metric-val red">${fmt(totalDue)}</div></div>
