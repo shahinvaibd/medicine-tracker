@@ -87,6 +87,7 @@ td{padding:9px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
     <div id="today-date" style="font-size:11px;opacity:0.8"></div>
   </div>
   <div id="sync-badge" style="display:none;background:#ff6f00;color:#fff;font-size:11px;padding:2px 6px;border-radius:20px;white-space:nowrap"></div>
+  <button id="manual-sync-btn" class="sm" onclick="manualSync()" style="flex-shrink:0;font-size:12px;padding:4px 8px" title="সর্বশেষ ডেটা টেনে আনো">🔄</button>
   <button id="profit-toggle-btn" class="sm" onclick="toggleProfitView()" style="flex-shrink:0;font-size:12px;padding:4px 8px">👁️</button>
 </header>
 <div id="sync-msg" class="msg" style="margin:8px 12px 0;display:none"></div>
@@ -484,6 +485,32 @@ function showMsg(id,text,type){
   setTimeout(()=>{el.className='msg';el.textContent=''},3500);
 }
 function fmt(n){return '৳'+Math.round(n).toLocaleString('en-IN')}
+
+async function manualSync(){
+  const btn = document.getElementById('manual-sync-btn');
+  btn.textContent = '⏳';
+  showMsg('sync-msg', 'সর্বশেষ ডেটা টেনে আনা হচ্ছে...', 'success');
+  try{
+    await syncQueue();
+    const res = await fetch(buildUrl({action:'getAll'}));
+    const data = await res.json();
+    // ম্যানুয়াল রিফ্রেশে সবসময় সার্ভারের ডেটাকেই সঠিক ধরা হয় (ব্যবহারকারী নিজে চেয়ে টেনেছেন)
+    products  = data.products  || products;
+    sales     = data.sales     || sales;
+    customers = data.customers || customers;
+    payments  = data.payments  || payments;
+    expenses  = data.expenses  || expenses;
+    capital   = data.capital   || capital;
+    saveLocal();
+    renderStock(); renderCustomerDropdown();
+    const activeTab = document.querySelector('.tab.active');
+    if(activeTab) showTab(activeTab.dataset.tab, activeTab);
+    showMsg('sync-msg', 'সর্বশেষ ডেটা লোড হয়েছে ✓', 'success');
+  }catch(e){
+    showMsg('sync-msg', 'রিফ্রেশ করা যায়নি, ইন্টারনেট চেক করুন', 'error');
+  }
+  btn.textContent = '🔄';
+}
 
 function toggleProfitView(){
   document.body.classList.toggle('profit-hidden');
