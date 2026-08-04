@@ -548,7 +548,14 @@ async function addProduct(){
   const ex=products.findIndex(p=>p.name.toLowerCase()===name.toLowerCase());
   let savedProduct;
   if(ex>=0){
-    products[ex].qty+=qty; products[ex].buyPrice=buy; products[ex].sellPrice=sell; products[ex].minQty=min;
+    // Weighted Average ক্রয়মূল্য হিসাব — আগের ব্যাচ ও নতুন ব্যাচের ক্রয়মূল্য ভিন্ন হলেও
+    // স্টকের প্রকৃত গড় ক্রয়মূল্য ঠিক থাকে
+    const oldQty = products[ex].qty;
+    const newAvgBuy = ((products[ex].buyPrice * oldQty) + (buy * qty)) / (oldQty + qty);
+    products[ex].qty += qty;
+    products[ex].buyPrice = Math.round(newAvgBuy * 100) / 100; // দুই দশমিক পর্যন্ত
+    products[ex].sellPrice = sell;
+    products[ex].minQty = min;
     savedProduct=products[ex];
   } else {
     savedProduct={id:Date.now(),name,buyPrice:buy,sellPrice:sell,qty,unit,minQty:min};
