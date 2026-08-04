@@ -919,6 +919,7 @@ async function recordSale(){
 
   btn.disabled = true;
   btn.textContent = '⏳ সংরক্ষণ হচ্ছে...';
+  let ok = false;
   try{
     const sale={id:Date.now(),date:new Date().toISOString(),buyer:buyerName,buyerId:custId||'',items,paidAmount:paid,dueAmount:due,discount};
     items.forEach(item=>{
@@ -926,13 +927,17 @@ async function recordSale(){
       if(p){ p.qty-=item.qty; apiPost({action:'saveProduct', product:p}); } // স্টক আপডেটও একক প্রোডাক্ট হিসেবে সেভ হয়
     });
     sales.push(sale); lastSale=sale;
-    const ok = await apiPost({action:'addSale',sale});
+    ok = await apiPost({action:'addSale',sale});
     showMsg('sale-msg',
       !ok ? 'বিক্রয় তালিকায় যোগ হয়েছে, কিন্তু সার্ভারে পাঠাতে সমস্যা হয়েছে — ইন্টারনেট এলে অটো-সিঙ্ক হবে' :
       due>0 ? `বিক্রয় সংরক্ষিত ✓ — ${fmt(due)} বাকি রইলো` :
       discount>0 ? `বিক্রয় সংরক্ষিত ✓ — ${fmt(discount)} ছাড় দেওয়া হয়েছে` :
       'বিক্রয় সংরক্ষিত হয়েছে ✓',
       ok ? 'success' : 'error');
+    // সফল হওয়ার পর বাটনে স্পষ্টভাবে "✅ সংরক্ষিত হয়েছে" দেখাও, যাতে দ্বিধায় পড়ে
+    // আবার চাপ দেওয়ার প্রয়োজন মনে না হয়
+    btn.textContent = ok ? '✅ সংরক্ষিত হয়েছে!' : '⚠️ সমস্যা হয়েছে, তালিকায় জমা আছে';
+    await new Promise(r=>setTimeout(r, 1500));
   } finally {
     btn.disabled = false;
     btn.textContent = '✅ বিক্রয় সংরক্ষণ করো';
