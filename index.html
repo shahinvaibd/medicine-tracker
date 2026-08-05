@@ -151,7 +151,7 @@ td{padding:9px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
       <input id="s-paid" type="number" placeholder="নগদ পেলাম (৳)" min="0" oninput="calcDue()">
       <input id="s-due" type="number" placeholder="বাকি (৳)" min="0" readonly style="background:#fff3e0">
     </div>
-    <button class="primary" id="record-sale-btn" onclick="recordSale()">✅ বিক্রয় সংরক্ষণ করো</button>
+    <button class="primary" id="record-sale-btn" onclick="if(this.disabled)return; this.disabled=true; recordSale()">✅ বিক্রয় সংরক্ষণ করো</button>
   </div>
   <div class="card">
     <h3>📅 আজকের বিক্রয়</h3>
@@ -939,52 +939,52 @@ function calcDue(){
 
 async function recordSale(){
   const btn = document.getElementById('record-sale-btn');
-  if(btn.disabled) return; // ইতিমধ্যে সাবমিট চলছে, বারবার চাপ দিলে আটকে দাও
-  const custId=document.getElementById('s-customer').value;
-  const manualName=document.getElementById('s-buyer').value.trim();
-  const cust=custId?customers.find(c=>c.id==custId):null;
-  const buyerName=cust?cust.name:manualName;
-  if(!buyerName){showMsg('sale-msg','ফার্মেসি বাছাই করো অথবা নাম লিখো','error');return;}
-  const items=[];let valid=true;
-  document.querySelectorAll('.sale-item').forEach(row=>{
-    const pid=parseInt(row.querySelector('.s-prod-id').value);
-    const qty=parseInt(row.querySelector('.s-qty').value);
-    const price=parseFloat(row.querySelector('.s-price').value);
-    if(!pid||!qty||!price){valid=false;return;}
-    const prod=products.find(p=>p.id===pid);
-    if(!prod){showMsg('sale-msg','প্রোডাক্ট সঠিকভাবে বাছাই করো','error');valid=false;return;}
-    if(prod.qty<qty){showMsg('sale-msg',prod.name+' এর স্টক কম (আছে: '+prod.qty+')','error');valid=false;return;}
-    items.push({productId:pid,name:prod.name,qty,sellPrice:price,buyPrice:prod.buyPrice,unit:prod.unit});
-  });
-  if(!valid)return;
-  if(!items.length){showMsg('sale-msg','কমপক্ষে একটি প্রোডাক্ট যোগ করো','error');return;}
-
-  // ডুপ্লিকেট সেল শনাক্তকরণ: গত ৩ মিনিটের মধ্যে একই কাস্টমার ও একই প্রোডাক্ট-তালিকার
-  // কোনো বিক্রয় আগে থেকেই থাকলে, ভুলবশত আবার সাবমিট হচ্ছে কিনা জিজ্ঞেস করো
-  const threeMinAgo = Date.now() - 3*60*1000;
-  const itemsKey = items.map(i=>i.productId+'x'+i.qty+'@'+i.sellPrice).sort().join(',');
-  const possibleDup = sales.some(s=>{
-    if(new Date(s.date).getTime() < threeMinAgo) return false;
-    if((s.buyerId||'') !== (custId||'') || s.buyer !== buyerName) return false;
-    const sKey = (s.items||[]).map(i=>i.productId+'x'+i.qty+'@'+i.sellPrice).sort().join(',');
-    return sKey === itemsKey;
-  });
-  if(possibleDup){
-    const proceed = confirm('⚠️ এই মুহূর্তেই একই কাস্টমার ও একই প্রোডাক্টের একটা বিক্রয় ইতিমধ্যে সংরক্ষিত হয়েছে।\n\nএটা কি সত্যিই আলাদা/নতুন একটা বিক্রয়? (আগেরটা ইতিমধ্যে সেভ হয়ে থাকলে "Cancel" চাপুন)');
-    if(!proceed) return;
-  }
-
-  const total = window.currentSaleTotal || 0;
-  const discount = parseFloat(document.getElementById('s-discount').value)||0;
-  const net = Math.max(0, total - discount);
-  const paid = parseFloat(document.getElementById('s-paid').value) || net;
-  const due  = parseFloat(document.getElementById('s-due').value) || 0;
-  if(due>0 && !custId){showMsg('sale-msg','বাকি রাখতে হলে আগে ফার্মেসি/কাস্টমার বাছাই করতে হবে তালিকা থেকে','error');return;}
-
-  btn.disabled = true;
-  btn.textContent = '⏳ সংরক্ষণ হচ্ছে...';
-  let ok = false;
+  let submitted = false;
   try{
+    const custId=document.getElementById('s-customer').value;
+    const manualName=document.getElementById('s-buyer').value.trim();
+    const cust=custId?customers.find(c=>c.id==custId):null;
+    const buyerName=cust?cust.name:manualName;
+    if(!buyerName){showMsg('sale-msg','ফার্মেসি বাছাই করো অথবা নাম লিখো','error');return;}
+    const items=[];let valid=true;
+    document.querySelectorAll('.sale-item').forEach(row=>{
+      const pid=parseInt(row.querySelector('.s-prod-id').value);
+      const qty=parseInt(row.querySelector('.s-qty').value);
+      const price=parseFloat(row.querySelector('.s-price').value);
+      if(!pid||!qty||!price){valid=false;return;}
+      const prod=products.find(p=>p.id===pid);
+      if(!prod){showMsg('sale-msg','প্রোডাক্ট সঠিকভাবে বাছাই করো','error');valid=false;return;}
+      if(prod.qty<qty){showMsg('sale-msg',prod.name+' এর স্টক কম (আছে: '+prod.qty+')','error');valid=false;return;}
+      items.push({productId:pid,name:prod.name,qty,sellPrice:price,buyPrice:prod.buyPrice,unit:prod.unit});
+    });
+    if(!valid)return;
+    if(!items.length){showMsg('sale-msg','কমপক্ষে একটি প্রোডাক্ট যোগ করো','error');return;}
+
+    // ডুপ্লিকেট সেল শনাক্তকরণ: গত ৩ মিনিটের মধ্যে একই কাস্টমার ও একই প্রোডাক্ট-তালিকার
+    // কোনো বিক্রয় আগে থেকেই থাকলে, ভুলবশত আবার সাবমিট হচ্ছে কিনা জিজ্ঞেস করো
+    const threeMinAgo = Date.now() - 3*60*1000;
+    const itemsKey = items.map(i=>i.productId+'x'+i.qty+'@'+i.sellPrice).sort().join(',');
+    const possibleDup = sales.some(s=>{
+      if(new Date(s.date).getTime() < threeMinAgo) return false;
+      if((s.buyerId||'') !== (custId||'') || s.buyer !== buyerName) return false;
+      const sKey = (s.items||[]).map(i=>i.productId+'x'+i.qty+'@'+i.sellPrice).sort().join(',');
+      return sKey === itemsKey;
+    });
+    if(possibleDup){
+      const proceed = confirm('⚠️ এই মুহূর্তেই একই কাস্টমার ও একই প্রোডাক্টের একটা বিক্রয় ইতিমধ্যে সংরক্ষিত হয়েছে।\n\nএটা কি সত্যিই আলাদা/নতুন একটা বিক্রয়? (আগেরটা ইতিমধ্যে সেভ হয়ে থাকলে "Cancel" চাপুন)');
+      if(!proceed) return;
+    }
+
+    const total = window.currentSaleTotal || 0;
+    const discount = parseFloat(document.getElementById('s-discount').value)||0;
+    const net = Math.max(0, total - discount);
+    const paid = parseFloat(document.getElementById('s-paid').value) || net;
+    const due  = parseFloat(document.getElementById('s-due').value) || 0;
+    if(due>0 && !custId){showMsg('sale-msg','বাকি রাখতে হলে আগে ফার্মেসি/কাস্টমার বাছাই করতে হবে তালিকা থেকে','error');return;}
+
+    submitted = true; // এখান থেকে সত্যিকারের সাবমিট শুরু হচ্ছে
+    btn.textContent = '⏳ সংরক্ষণ হচ্ছে...';
+    let ok = false;
     const sale={id:Date.now(),date:new Date().toISOString(),buyer:buyerName,buyerId:custId||'',items,paidAmount:paid,dueAmount:due,discount};
     items.forEach(item=>{
       const p=products.find(pr=>pr.id===item.productId);
@@ -1006,6 +1006,7 @@ async function recordSale(){
     btn.disabled = false;
     btn.textContent = '✅ বিক্রয় সংরক্ষণ করো';
   }
+  if(!submitted) return;
   document.getElementById('s-customer').value='';
   document.getElementById('s-customer-search').value='';
   document.getElementById('s-buyer').value='';
