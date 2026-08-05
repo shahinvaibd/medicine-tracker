@@ -316,6 +316,26 @@ td{padding:9px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
   </div>
 </div>
 
+<!-- EDIT SALE PAYMENT MODAL -->
+<div class="modal" id="edit-sale-modal">
+  <div class="modal-box">
+    <h3 style="margin-bottom:10px;font-size:14px">✏️ বিক্রয় সংশোধন করো (নগদ/বাকি)</h3>
+    <div id="edit-sale-msg" class="msg"></div>
+    <div style="font-size:13px;margin-bottom:10px;color:#555">
+      <strong id="edit-sale-buyer"></strong><br>
+      <span id="edit-sale-items"></span><br>
+      মোট বিল: <strong id="edit-sale-total"></strong>
+    </div>
+    <input type="hidden" id="edit-sale-id">
+    <div class="row c2">
+      <input id="edit-sale-paid" type="number" placeholder="নগদ পেয়েছি (৳)" min="0" oninput="calcEditSaleDue()">
+      <input id="edit-sale-due" type="number" placeholder="বাকি (৳)" min="0" readonly style="background:#fff3e0">
+    </div>
+    <button class="primary green" onclick="saveEditSale()">সংশোধন সংরক্ষণ করো</button>
+    <button class="sm" style="width:100%;margin-top:8px" onclick="closeEditSale()">বাতিল</button>
+  </div>
+</div>
+
 <script>
 // Cloudflare Worker proxy দিয়ে Google Sheets-এ data save/load করো
 const API = 'https://script.google.com/macros/s/AKfycbyENClgBhWyHtJHKh5AR1RVZp28xC12KEv28KqqCbDl0Ip3FsV_WWO2szkS-J50BX7M/exec';
@@ -605,6 +625,7 @@ document.addEventListener('click',function(e){
   if(e.target.classList.contains('del-cust'))    deleteCustomer(e.target.getAttribute('data-id'));
   if(e.target.classList.contains('edit-cust'))   editCustomer(parseInt(e.target.getAttribute('data-id')));
   if(e.target.classList.contains('show-bill'))   showBill(e.target.getAttribute('data-id'));
+  if(e.target.classList.contains('edit-sale'))   openEditSale(e.target.getAttribute('data-id'));
   if(e.target.classList.contains('del-capital')) deleteCapitalEntry(e.target.getAttribute('data-id'));
   if(e.target.classList.contains('del-expense')) deleteExpenseEntry(e.target.getAttribute('data-id'));
 });
@@ -701,6 +722,42 @@ async function recordPayment(){
   showMsg('customer-msg', fmt(amount)+' টাকা পরিশোধ এন্ট্রি হয়েছে ✓','success');
   closePayDue();
   renderCustomers();
+}
+
+// ---- EDIT SALE (নগদ/বাকি সংশোধন) ----
+function openEditSale(saleId){
+  const s = sales.find(x=>String(x.id)===String(saleId)); if(!s) return;
+  const total = s.items.reduce((sum,i)=>sum+i.sellPrice*i.qty,0);
+  document.getElementById('edit-sale-id').value = s.id;
+  document.getElementById('edit-sale-buyer').textContent = s.buyer;
+  document.getElementById('edit-sale-items').textContent = s.items.map(i=>i.name+' ×'+i.qty).join(', ');
+  document.getElementById('edit-sale-total').textContent = fmt(total);
+  document.getElementById('edit-sale-paid').value = s.paidAmount||0;
+  document.getElementById('edit-sale-paid').max = total;
+  document.getElementById('edit-sale-due').value = s.dueAmount||0;
+  window.editSaleTotal = total;
+  document.getElementById('edit-sale-modal').classList.add('active');
+}
+function closeEditSale(){ document.getElementById('edit-sale-modal').classList.remove('active'); }
+
+function calcEditSaleDue(){
+  const total = window.editSaleTotal || 0;
+  let paid = parseFloat(document.getElementById('edit-sale-paid').value)||0;
+  if(paid > total) paid = total;
+  document.getElementById('edit-sale-due').value = Math.max(0, total - paid);
+}
+
+async function saveEditSale(){
+  const id = document.getElementById('edit-sale-id').value;
+  const paidAmount = parseFloat(document.getElementById('edit-sale-paid').value)||0;
+  const dueAmount = parseFloat(document.getElementById('edit-sale-due').value)||0;
+  const s = sales.find(x=>String(x.id)===String(id)); if(!s) return;
+  s.paidAmount = paidAmount; s.dueAmount = dueAmount;
+  saveLocal();
+  const ok = await apiPost({action:'updateSalePayment', data:{id, paidAmount, dueAmount}});
+  showMsg('edit-sale-msg', ok ? 'সংশোধন সংরক্ষিত হয়েছে ✓' : 'সার্ভারে পাঠাতে সমস্যা হয়েছে, ইন্টারনেট এলে অটো-সিঙ্ক হবে', ok?'success':'error');
+  renderTodaySales(); renderCustomers();
+  setTimeout(closeEditSale, 900);
 }
 
 function renderCustomers(){
@@ -979,6 +1036,7 @@ function renderTodaySales(){
       <div style="display:flex;justify-content:space-between;align-items:center">
         <span style="font-size:13px">বিল: <strong>${fmt(total)}</strong> | লাভ: <strong class="profit-text profit-val">${fmt(profit)}</strong></span>
         <button class="sm blue show-bill" data-id="${s.id}">🧾 বিল</button>
+        <button class="sm blue edit-sale" data-id="${s.id}">✏️</button>
       </div>
     </div>`;
   });
@@ -1261,6 +1319,7 @@ function renderSalesHistory(){
       ${dayS.map(s=>`<div class="day-row" style="display:flex;justify-content:space-between;align-items:center">
         <span>${s.buyer}: ${s.items.map(i=>i.name+' ×'+i.qty).join(', ')}</span>
         <button class="sm blue show-bill" data-id="${s.id}" style="flex-shrink:0;margin-left:8px">🧾</button>
+        <button class="sm blue edit-sale" data-id="${s.id}" style="flex-shrink:0;margin-left:4px">✏️</button>
       </div>`).join('')}
     </div>`;
   }).join('');
