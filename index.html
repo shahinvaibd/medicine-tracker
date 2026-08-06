@@ -125,7 +125,22 @@ td{padding:9px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
   </div>
   <div class="card">
     <h3>📋 স্টক তালিকা</h3>
+    <input id="stock-search" placeholder="🔍 প্রোডাক্টের নাম লিখে খোঁজো..." oninput="renderStock()" style="margin-bottom:10px">
     <div id="stock-table"></div>
+  </div>
+</div>
+
+<!-- RESTOCK MODAL -->
+<div class="modal" id="restock-modal">
+  <div class="modal-box">
+    <h3 style="margin-bottom:10px;font-size:14px">➕ রিস্টক করো</h3>
+    <div id="restock-msg" class="msg"></div>
+    <div style="font-size:14px;margin-bottom:10px"><strong id="restock-name"></strong><br><span style="font-size:12px;color:#888">বর্তমান স্টক: <strong id="restock-current-qty"></strong></span></div>
+    <input type="hidden" id="restock-id">
+    <input id="restock-qty" type="number" placeholder="নতুন পরিমাণ যোগ করো" min="1">
+    <input id="restock-buy" type="number" placeholder="এই ব্যাচের ক্রয় মূল্য (৳)" min="0" step="0.01">
+    <button class="primary" onclick="saveRestock()">রিস্টক সংরক্ষণ করো</button>
+    <button class="sm" style="width:100%;margin-top:8px" onclick="closeRestock()">বাতিল</button>
   </div>
 </div>
 
@@ -137,7 +152,7 @@ td{padding:9px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
     <div style="position:relative;margin-bottom:8px">
       <input id="s-customer-search" placeholder="🔍 ফার্মেসি খোঁজো বা বাছাই করো..." autocomplete="off"
         oninput="filterCustomers(this)" onfocus="showCustomerDropdown()" onblur="setTimeout(()=>hideCustomerDropdown(),200)">
-      <div id="s-customer-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #ddd;border-radius:8px;z-index:50;max-height:160px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,0.1)"></div>
+      <div id="s-customer-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #ddd;border-radius:8px;z-index:50;max-height:280px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,0.1)"></div>
       <input type="hidden" id="s-customer" value="">
     </div>
     <input id="s-buyer" placeholder="অথবা নতুন নাম লিখো">
@@ -600,14 +615,52 @@ function renderStock(){
   updateMetrics();
   const tb=document.getElementById('stock-table');
   if(!products.length){tb.innerHTML='<div class="empty">এখনো কোনো প্রোডাক্ট নেই</div>';return;}
+  const searchEl = document.getElementById('stock-search');
+  const q = searchEl ? searchEl.value.toLowerCase().trim() : '';
+  const filtered = q ? products.filter(p=>p.name.toLowerCase().includes(q)) : products;
+  if(!filtered.length){tb.innerHTML='<div class="empty">কোনো প্রোডাক্ট পাওয়া যায়নি</div>';return;}
   tb.innerHTML='<table><thead><tr><th>প্রোডাক্ট</th><th style="text-align:center">স্টক</th><th>অবস্থা</th><th></th></tr></thead><tbody>'+
-    [...products].sort((a,b)=>a.name.localeCompare(b.name)).map(p=>{
+    [...filtered].sort((a,b)=>a.name.localeCompare(b.name)).map(p=>{
       const profit=p.buyPrice>0?((p.sellPrice-p.buyPrice)/p.buyPrice*100).toFixed(0):'0';
       const status=p.qty===0?'<span class="badge out">শেষ</span>':p.qty<=p.minQty?'<span class="badge low">কম</span>':'<span class="badge ok">আছে</span>';
       return`<tr><td><strong>${p.name}</strong><br><span style="font-size:11px;color:#888">${fmt(p.buyPrice)} → ${fmt(p.sellPrice)} | লাভ ${profit}%</span></td>
       <td style="text-align:center">${p.qty}<br><span style="font-size:11px;color:#888">${p.unit}</span></td>
-      <td>${status}</td><td><button class="sm danger del-prod" data-id="${p.id}">মুছো</button></td></tr>`;
+      <td>${status}</td><td style="white-space:nowrap"><button class="sm blue restock-prod" data-id="${p.id}">➕</button> <button class="sm danger del-prod" data-id="${p.id}">মুছো</button></td></tr>`;
     }).join('')+'</tbody></table>';
+}
+
+// ---- RESTOCK (দ্রুত স্টক যোগ করা — নাম/ইউনিট আবার লেখার দরকার নেই) ----
+function openRestock(id){
+  const p = products.find(x=>String(x.id)===String(id)); if(!p) return;
+  document.getElementById('restock-id').value = p.id;
+  document.getElementById('restock-name').textContent = p.name;
+  document.getElementById('restock-current-qty').textContent = p.qty + ' ' + p.unit;
+  document.getElementById('restock-qty').value = '';
+  document.getElementById('restock-buy').value = p.buyPrice;
+  document.getElementById('restock-modal').classList.add('active');
+}
+function closeRestock(){ document.getElementById('restock-modal').classList.remove('active'); }
+
+async function saveRestock(){
+  const id = document.getElementById('restock-id').value;
+  const addQty = parseInt(document.getElementById('restock-qty').value);
+  const newBuy = parseFloat(document.getElementById('restock-buy').value);
+  if(!addQty || addQty<=0){ showMsg('restock-msg','সঠিক পরিমাণ লিখো','error'); return; }
+  if(isNaN(newBuy) || newBuy<0){ showMsg('restock-msg','সঠিক ক্রয়মূল্য লিখো','error'); return; }
+  const p = products.find(x=>String(x.id)===String(id)); if(!p) return;
+
+  // Weighted Average ক্রয়মূল্য হিসাব
+  const oldQty = p.qty;
+  const newAvgBuy = ((p.buyPrice * oldQty) + (newBuy * addQty)) / (oldQty + addQty);
+  p.qty += addQty;
+  p.buyPrice = Math.round(newAvgBuy * 100) / 100;
+
+  showMsg('restock-msg', 'সংরক্ষণ হচ্ছে...', 'success');
+  const ok = await apiPost({action:'saveProduct', product:p});
+  saveLocal();
+  showMsg('restock-msg', ok ? 'রিস্টক সংরক্ষিত হয়েছে ✓' : 'সার্ভারে সেভ হয়নি, অটো-রিট্রাই হবে', ok?'success':'error');
+  renderStock();
+  setTimeout(closeRestock, 900);
 }
 
 async function deleteProduct(id){
@@ -622,6 +675,7 @@ async function deleteProduct(id){
 
 document.addEventListener('click',function(e){
   if(e.target.classList.contains('del-prod'))    deleteProduct(e.target.getAttribute('data-id'));
+  if(e.target.classList.contains('restock-prod')) openRestock(e.target.getAttribute('data-id'));
   if(e.target.classList.contains('del-cust'))    deleteCustomer(e.target.getAttribute('data-id'));
   if(e.target.classList.contains('edit-cust'))   editCustomer(parseInt(e.target.getAttribute('data-id')));
   if(e.target.classList.contains('show-bill'))   showBill(e.target.getAttribute('data-id'));
@@ -825,15 +879,42 @@ function hideCustomerDropdown(){
   document.getElementById('s-customer-dropdown').style.display='none';
 }
 
+// সাম্প্রতিক বিক্রয় অনুযায়ী সবচেয়ে বেশি সাম্প্রতিক ৫ জন কাস্টমার বের করো (কুইক-সিলেক্টের জন্য)
+function getRecentCustomerIds(limit){
+  const lastDateById = {};
+  sales.forEach(s=>{
+    const key = s.buyerId; if(!key) return;
+    if(!lastDateById[key] || s.date > lastDateById[key]) lastDateById[key] = s.date;
+  });
+  return Object.entries(lastDateById).sort((a,b)=>b[1]>a[1]?1:-1).slice(0,limit).map(x=>x[0]);
+}
+
 function renderCustomerDDList(list){
   const dd=document.getElementById('s-customer-dropdown');
   if(!list.length){dd.innerHTML='<div style="padding:10px;color:#aaa;font-size:13px">কোনো ফার্মেসি নেই</div>';return;}
-  dd.innerHTML=list.map(c=>`
+  // নাম অনুযায়ী বর্ণানুক্রমিক সাজাও, খুঁজে পাওয়া সহজ হওয়ার জন্য
+  const sorted = [...list].sort((a,b)=>a.name.localeCompare(b.name,'bn'));
+
+  let html = '';
+  // পুরো তালিকা দেখানো হলে (সার্চ করা না থাকলে) উপরে "সাম্প্রতিক" কুইক-সিলেক্ট চিপ দেখাও
+  if(list.length === customers.length){
+    const recentIds = getRecentCustomerIds(5);
+    const recentCustomers = recentIds.map(id=>customers.find(c=>String(c.id)===String(id))).filter(Boolean);
+    if(recentCustomers.length){
+      html += `<div style="padding:8px 10px 4px;font-size:11px;color:#888;font-weight:600">🕒 সাম্প্রতিক</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;padding:0 10px 8px;border-bottom:1px solid #eee">
+          ${recentCustomers.map(c=>`<span onmousedown="selectCustomer('${c.id}','${c.name.replace(/'/g,"\\'")}')"
+            style="padding:5px 10px;background:#e3f2fd;color:#1565c0;border-radius:20px;font-size:12px;cursor:pointer;white-space:nowrap">${c.name}</span>`).join('')}
+        </div>`;
+    }
+  }
+  html += sorted.map(c=>`
     <div onmousedown="selectCustomer('${c.id}','${c.name.replace(/'/g,"\\'")}') "
       style="padding:10px 12px;cursor:pointer;border-bottom:1px solid #f5f5f5;font-size:13px">
       <div style="font-weight:600">${c.name}</div>
       ${c.phone?`<div style="font-size:11px;color:#888">📞 ${c.phone}</div>`:''}
     </div>`).join('');
+  dd.innerHTML = html;
 }
 
 function selectCustomer(id, name){
