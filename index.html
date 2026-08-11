@@ -135,11 +135,13 @@ td{padding:9px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
   <div class="modal-box">
     <h3 style="margin-bottom:10px;font-size:14px">➕ রিস্টক করো</h3>
     <div id="restock-msg" class="msg"></div>
-    <div style="font-size:14px;margin-bottom:10px"><strong id="restock-name"></strong><br><span style="font-size:12px;color:#888">বর্তমান স্টক: <strong id="restock-current-qty"></strong></span></div>
+    <div style="font-size:14px;margin-bottom:10px"><strong id="restock-name"></strong><br><span style="font-size:12px;color:#888">বর্তমান স্টক: <strong id="restock-current-qty"></strong> | বর্তমান ক্রয়মূল্য: <strong id="restock-current-buy"></strong></span></div>
     <input type="hidden" id="restock-id">
     <input id="restock-qty" type="number" placeholder="নতুন পরিমাণ যোগ করো" min="1">
     <input id="restock-buy" type="number" placeholder="এই ব্যাচের ক্রয় মূল্য (৳)" min="0" step="0.01">
     <button class="primary" onclick="saveRestock()">রিস্টক সংরক্ষণ করো</button>
+    <div style="text-align:center;font-size:12px;color:#888;margin:10px 0 6px">— অথবা —</div>
+    <button class="sm" style="width:100%;background:#fff3e0;color:#e65100;border-color:#ffcc80;padding:8px" onclick="fixPriceOnly()">✏️ শুধু ক্রয়মূল্য ভুল হয়েছে, ঠিক করো (স্টক অপরিবর্তিত)</button>
     <button class="sm" style="width:100%;margin-top:8px" onclick="closeRestock()">বাতিল</button>
   </div>
 </div>
@@ -648,6 +650,7 @@ function openRestock(id){
   document.getElementById('restock-id').value = p.id;
   document.getElementById('restock-name').textContent = p.name;
   document.getElementById('restock-current-qty').textContent = p.qty + ' ' + p.unit;
+  document.getElementById('restock-current-buy').textContent = fmt(p.buyPrice);
   document.getElementById('restock-qty').value = '';
   document.getElementById('restock-buy').value = p.buyPrice;
   document.getElementById('restock-modal').classList.add('active');
@@ -672,6 +675,23 @@ async function saveRestock(){
   const ok = await apiPost({action:'saveProduct', product:p});
   saveLocal();
   showMsg('restock-msg', ok ? 'রিস্টক সংরক্ষিত হয়েছে ✓' : 'সার্ভারে সেভ হয়নি, অটো-রিট্রাই হবে', ok?'success':'error');
+  renderStock();
+  setTimeout(closeRestock, 900);
+}
+
+// ভুল করে বসানো ক্রয়মূল্য সরাসরি সংশোধন করে — স্টক পরিমাণে হাত দেয় না, গড়ও করে না
+async function fixPriceOnly(){
+  const id = document.getElementById('restock-id').value;
+  const newBuy = parseFloat(document.getElementById('restock-buy').value);
+  if(isNaN(newBuy) || newBuy<0){ showMsg('restock-msg','সঠিক ক্রয়মূল্য লিখো','error'); return; }
+  const p = products.find(x=>String(x.id)===String(id)); if(!p) return;
+  const oldBuy = p.buyPrice;
+  p.buyPrice = newBuy;
+
+  showMsg('restock-msg', `সংরক্ষণ হচ্ছে... (${fmt(oldBuy)} → ${fmt(newBuy)}, স্টক ${p.qty} ${p.unit} অপরিবর্তিত)`, 'success');
+  const ok = await apiPost({action:'saveProduct', product:p});
+  saveLocal();
+  showMsg('restock-msg', ok ? 'ক্রয়মূল্য সংশোধন হয়েছে ✓' : 'সার্ভারে সেভ হয়নি, অটো-রিট্রাই হবে', ok?'success':'error');
   renderStock();
   setTimeout(closeRestock, 900);
 }
