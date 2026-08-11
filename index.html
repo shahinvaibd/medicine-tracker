@@ -581,6 +581,19 @@ async function addProduct(){
   const min=parseInt(document.getElementById('p-min').value)||5;
   if(!name||isNaN(buy)||isNaN(sell)||isNaN(qty)){showMsg('stock-msg','সব তথ্য সঠিকভাবে পূরণ করো','error');return;}
   const ex=products.findIndex(p=>p.name.toLowerCase()===name.toLowerCase());
+
+  // হুবহু মিল না পেলে, প্রায় একই রকম নাম (স্পেস/হাইফেন/case বাদ দিয়ে) আগে থেকে আছে কিনা চেক করো —
+  // যাতে একই প্রোডাক্ট ভুল বানানে দুইবার এন্ট্রি হয়ে স্টক ভাগ হয়ে না যায়
+  if(ex<0){
+    const normalize = s => s.toLowerCase().replace(/[\s\-_.]/g,'');
+    const normName = normalize(name);
+    const similar = products.find(p => normalize(p.name) === normName);
+    if(similar){
+      const proceed = confirm(`⚠️ "${similar.name}" নামে প্রায় একই রকম একটা প্রোডাক্ট আগে থেকেই আছে (বর্তমান স্টক: ${similar.qty} ${similar.unit})।\n\nএটা কি সেই একই প্রোডাক্ট (বানান একটু ভিন্ন)? তাহলে "Cancel" চেপে ওই প্রোডাক্টেই ➕ রিস্টক বাটন দিয়ে যোগ করুন।\n\nসত্যিই আলাদা নতুন প্রোডাক্ট হলে "OK" চাপুন।`);
+      if(!proceed){ showMsg('stock-msg','বাতিল করা হয়েছে — ওই প্রোডাক্টেই ➕ রিস্টক করুন','error'); return; }
+    }
+  }
+
   let savedProduct;
   if(ex>=0){
     // Weighted Average ক্রয়মূল্য হিসাব — আগের ব্যাচ ও নতুন ব্যাচের ক্রয়মূল্য ভিন্ন হলেও
@@ -864,7 +877,7 @@ function renderCustomerDropdown(){
 function filterCustomers(input){
   const q=input.value.toLowerCase().trim();
   const dd=document.getElementById('s-customer-dropdown');
-  const filtered=q?customers.filter(c=>c.name.toLowerCase().includes(q)||( c.phone&&c.phone.includes(q))):customers;
+  const filtered=q?customers.filter(c=>c.name.toLowerCase().includes(q)||(c.phone && String(c.phone).includes(q))):customers;
   renderCustomerDDList(filtered);
   dd.style.display='block';
 }
