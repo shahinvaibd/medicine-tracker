@@ -1095,6 +1095,7 @@ async function recordSale(){
     const paid = parseFloat(document.getElementById('s-paid').value) || net;
     const due  = parseFloat(document.getElementById('s-due').value) || 0;
     if(due>0 && !custId){showMsg('sale-msg','বাকি রাখতে হলে আগে ফার্মেসি/কাস্টমার বাছাই করতে হবে তালিকা থেকে','error');return;}
+    if(due>0 && buyerName.trim().toLowerCase()==='random sale'){showMsg('sale-msg','"Random sale"-এর জন্য বাকি রাখা যাবে না — সম্পূর্ণ নগদ নিন অথবা নির্দিষ্ট ফার্মেসির নাম বেছে নিন','error');return;}
 
     submitted = true; // এখান থেকে সত্যিকারের সাবমিট শুরু হচ্ছে
     btn.textContent = '⏳ সংরক্ষণ হচ্ছে...';
