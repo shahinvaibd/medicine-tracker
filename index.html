@@ -105,8 +105,8 @@ td{padding:9px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
   <div class="grid4">
     <div class="metric"><div class="metric-label">মোট প্রোডাক্ট</div><div class="metric-val" id="m-total">0</div></div>
     <div class="metric"><div class="metric-label">মজুদ মূল্য</div><div class="metric-val" id="m-stockval">৳0</div></div>
-    <div class="metric"><div class="metric-label">কম স্টক</div><div class="metric-val red" id="m-low">0</div></div>
-    <div class="metric"><div class="metric-label">শেষ হয়েছে</div><div class="metric-val red" id="m-out">0</div></div>
+    <div class="metric" style="cursor:pointer" onclick="setStockFilter('low', document.getElementById('stock-filter-low'))"><div class="metric-label">কম স্টক</div><div class="metric-val red" id="m-low">0</div></div>
+    <div class="metric" style="cursor:pointer" onclick="setStockFilter('out', document.getElementById('stock-filter-out'))"><div class="metric-label">শেষ হয়েছে</div><div class="metric-val red" id="m-out">0</div></div>
   </div>
   <div class="card">
     <h3>➕ নতুন প্রোডাক্ট / স্টক যোগ করো</h3>
@@ -126,6 +126,11 @@ td{padding:9px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
   <div class="card">
     <h3>📋 স্টক তালিকা</h3>
     <input id="stock-search" placeholder="🔍 প্রোডাক্টের নাম লিখে খোঁজো..." oninput="renderStock()" style="margin-bottom:10px">
+    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+      <button class="filter-btn active" id="stock-filter-all" onclick="setStockFilter('all',this)">সব</button>
+      <button class="filter-btn" id="stock-filter-low" onclick="setStockFilter('low',this)">⚠️ কম স্টক</button>
+      <button class="filter-btn" id="stock-filter-out" onclick="setStockFilter('out',this)">❌ শেষ হয়েছে</button>
+    </div>
     <button class="sm" style="width:100%;background:#e3f2fd;color:#1565c0;border-color:#90caf9;padding:9px;margin-bottom:10px" onclick="openRecount()">📋 সম্পূর্ণ স্টক গণনা করো (একসাথে সব ঠিক করো)</button>
     <div id="stock-table"></div>
   </div>
@@ -641,13 +646,23 @@ async function addProduct(){
   renderStock();
 }
 
+let currentStockFilter = 'all';
+function setStockFilter(f, btn){
+  currentStockFilter = f;
+  document.querySelectorAll('#stock-filter-all, #stock-filter-low, #stock-filter-out').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderStock();
+}
+
 function renderStock(){
   updateMetrics();
   const tb=document.getElementById('stock-table');
   if(!products.length){tb.innerHTML='<div class="empty">এখনো কোনো প্রোডাক্ট নেই</div>';return;}
   const searchEl = document.getElementById('stock-search');
   const q = searchEl ? searchEl.value.toLowerCase().trim() : '';
-  const filtered = q ? products.filter(p=>p.name.toLowerCase().includes(q)) : products;
+  let filtered = q ? products.filter(p=>p.name.toLowerCase().includes(q)) : products;
+  if(currentStockFilter==='low') filtered = filtered.filter(p=>p.qty>0 && p.qty<=p.minQty);
+  if(currentStockFilter==='out') filtered = filtered.filter(p=>p.qty<=0);
   if(!filtered.length){tb.innerHTML='<div class="empty">কোনো প্রোডাক্ট পাওয়া যায়নি</div>';return;}
   tb.innerHTML='<table><thead><tr><th>প্রোডাক্ট</th><th style="text-align:center">স্টক</th><th>অবস্থা</th><th></th></tr></thead><tbody>'+
     [...filtered].sort((a,b)=>a.name.localeCompare(b.name)).map(p=>{
@@ -802,7 +817,7 @@ function updateMetrics(){
   document.getElementById('m-total').textContent=products.length;
   document.getElementById('m-stockval').textContent=fmt(products.reduce((s,p)=>s+p.buyPrice*p.qty,0));
   document.getElementById('m-low').textContent=products.filter(p=>p.qty>0&&p.qty<=p.minQty).length;
-  document.getElementById('m-out').textContent=products.filter(p=>p.qty===0).length;
+  document.getElementById('m-out').textContent=products.filter(p=>p.qty<=0).length;
 }
 
 // ---- CUSTOMER ----
