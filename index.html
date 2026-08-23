@@ -409,6 +409,28 @@ async function apiPost(body){
   }
 }
 
+// apiPost-এর মতোই, কিন্তু সার্ভারের প্রকৃত জবাব (যেমন সার্ভার-হিসাব করা নতুন qty/buyPrice)
+// ফেরত দেয় — যেখানে সার্ভারের authoritative মান পরে ব্যবহার করা দরকার
+async function apiPostRaw(body){
+  saveLocal();
+  if(!isOnline()){
+    offlineQueue.push(body); saveQueue(); updateSyncBadge(); return null;
+  }
+  pendingSaves++;
+  try{
+    const res = await fetch(API, { method:'POST', body: JSON.stringify(body) });
+    const data = await res.json();
+    if(data && data.error){ throw new Error(data.error); }
+    return data;
+  }catch(e){
+    offlineQueue.push(body); saveQueue(); updateSyncBadge();
+    showMsg('sync-msg','সার্ভারে সেভ করা যায়নি, ইন্টারনেট এলে আবার চেষ্টা হবে','error');
+    return null;
+  } finally {
+    pendingSaves--;
+  }
+}
+
 async function syncQueue(){
   if(!isOnline()||offlineQueue.length===0) return;
   const queue=[...offlineQueue]; offlineQueue=[]; saveQueue();
@@ -696,16 +718,21 @@ async function saveRestock(){
   if(isNaN(newBuy) || newBuy<0){ showMsg('restock-msg','সঠিক ক্রয়মূল্য লিখো','error'); return; }
   const p = products.find(x=>String(x.id)===String(id)); if(!p) return;
 
-  // Weighted Average ক্রয়মূল্য হিসাব
-  const oldQty = p.qty;
-  const newAvgBuy = ((p.buyPrice * oldQty) + (newBuy * addQty)) / (oldQty + addQty);
-  p.qty += addQty;
-  p.buyPrice = Math.round(newAvgBuy * 100) / 100;
-
   showMsg('restock-msg', 'সংরক্ষণ হচ্ছে...', 'success');
-  const ok = await apiPost({action:'saveProduct', product:p});
-  saveLocal();
-  showMsg('restock-msg', ok ? 'রিস্টক সংরক্ষিত হয়েছে ✓' : 'সার্ভারে সেভ হয়নি, অটো-রিট্রাই হবে', ok?'success':'error');
+  // সার্ভারকে "এত পরিমাণ ও এই দামে যোগ করো" বলা হচ্ছে — সার্ভার নিজের বর্তমান প্রকৃত
+  // qty/buyPrice থেকেই গড় হিসাব করবে, লোকাল সংখ্যা পুরনো/স্টেল হলেও কোনো সমস্যা হবে না
+  const res = await apiPostRaw({action:'addStock', data:{id:p.id, qty:addQty, buyPrice:newBuy}});
+  if(res && res.success){
+    p.qty = res.qty; p.buyPrice = res.buyPrice; saveLocal();
+    showMsg('restock-msg', 'রিস্টক সংরক্ষিত হয়েছে ✓', 'success');
+  } else {
+    // অফলাইন/ব্যর্থ হলে লোকালি একটা আনুমানিক (approximate) হিসাব দেখাও, পরে সিঙ্কে ঠিক হয়ে যাবে
+    const oldQty = p.qty;
+    p.qty += addQty;
+    p.buyPrice = Math.round(((p.buyPrice*oldQty)+(newBuy*addQty))/p.qty*100)/100;
+    saveLocal();
+    showMsg('restock-msg', 'সার্ভারে সেভ হয়নি, অটো-রিট্রাই হবে', 'error');
+  }
   renderStock();
   setTimeout(closeRestock, 900);
 }
@@ -1206,7 +1233,12 @@ async function recordSale(){
     const sale={id:Date.now(),date:new Date().toISOString(),buyer:buyerName,buyerId:custId||'',items,paidAmount:paid,dueAmount:due,discount};
     items.forEach(item=>{
       const p=products.find(pr=>pr.id===item.productId);
-      if(p){ p.qty-=item.qty; apiPost({action:'saveProduct', product:p}); } // স্টক আপডেটও একক প্রোডাক্ট হিসেবে সেভ হয়
+      if(p){
+        p.qty-=item.qty; // শুধু স্ক্রিনে সাথে সাথে দেখানোর জন্য (আসল হিসাব সার্ভারেই হয়)
+        // সার্ভারকে বলা হচ্ছে "এত পরিমাণ কমাও" (relative) — লোকাল সংখ্যা যতই পুরনো হোক,
+        // সার্ভার নিজের বর্তমান প্রকৃত সংখ্যা থেকেই বিয়োগ করবে, তাই মাইনাস হয়ে যাওয়ার সুযোগ নেই
+        apiPost({action:'reduceStock', data:{id:p.id, qty:item.qty}});
+      }
     });
     sales.push(sale); lastSale=sale;
     ok = await apiPost({action:'addSale',sale});
