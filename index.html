@@ -22,6 +22,11 @@ header h1{font-size:14px;font-weight:600}
 .metric-val.green{color:#2e7d32}
 .metric-val.red{color:#c62828}
 .card{background:#fff;border-radius:10px;padding:14px;margin-bottom:12px;border:1px solid #e0e0e0}
+.card h3.toggle-header{cursor:pointer;display:flex;justify-content:space-between;align-items:center}
+.card h3.toggle-header .chev{font-size:11px;color:#aaa;font-weight:400}
+.card-body.collapsed{display:none}
+.toggle-pill{flex:1;padding:8px;font-size:13px;border:1px solid #ddd;border-radius:8px;background:#fff;color:#555;cursor:pointer}
+.toggle-pill.active{background:#1565c0;color:#fff;border-color:#1565c0}
 .card h3{font-size:14px;font-weight:600;color:#444;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #f0f0f0}
 input,select,textarea{width:100%;padding:10px 12px;font-size:14px;border:1px solid #ddd;border-radius:8px;background:#fafafa;color:#1a1a1a;margin-bottom:8px;-webkit-appearance:none}
 textarea{resize:vertical;min-height:60px}
@@ -39,7 +44,7 @@ button.sm.blue{border-color:#90caf9;color:#1565c0;background:#e3f2fd}
 button.sm.add-row{border-color:#90caf9;color:#1565c0;background:#e3f2fd;margin:4px 0 12px}
 table{width:100%;border-collapse:collapse;font-size:13px}
 th{text-align:left;padding:8px 6px;color:#888;font-weight:500;border-bottom:1px solid #eee;font-size:12px}
-td{padding:9px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:middle}
+td{padding:7px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:middle;line-height:1.35}
 .badge{display:inline-block;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600}
 .badge.ok{background:#e8f5e9;color:#2e7d32}
 .badge.low{background:#fff8e1;color:#f57f17}
@@ -109,19 +114,21 @@ td{padding:9px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
     <div class="metric" style="cursor:pointer" onclick="setStockFilter('out', document.getElementById('stock-filter-out'))"><div class="metric-label">শেষ হয়েছে</div><div class="metric-val red" id="m-out">0</div></div>
   </div>
   <div class="card">
-    <h3>➕ নতুন প্রোডাক্ট / স্টক যোগ করো</h3>
-    <div id="stock-msg" class="msg"></div>
-    <input id="p-name" placeholder="প্রোডাক্টের নাম (যেমন: Napa 500mg)">
-    <div class="row c2">
-      <input id="p-buy" type="number" placeholder="ক্রয় মূল্য (৳)" min="0" step="0.01">
-      <input id="p-sell" type="number" placeholder="বিক্রয় মূল্য (৳)" min="0" step="0.01">
+    <h3 class="toggle-header" onclick="toggleCard(this)">➕ নতুন প্রোডাক্ট / স্টক যোগ করো <span class="chev">▸</span></h3>
+    <div class="card-body collapsed">
+      <div id="stock-msg" class="msg"></div>
+      <input id="p-name" placeholder="প্রোডাক্টের নাম (যেমন: Napa 500mg)">
+      <div class="row c2">
+        <input id="p-buy" type="number" placeholder="ক্রয় মূল্য (৳)" min="0" step="0.01">
+        <input id="p-sell" type="number" placeholder="বিক্রয় মূল্য (৳)" min="0" step="0.01">
+      </div>
+      <div class="row c2">
+        <input id="p-qty" type="number" placeholder="পরিমাণ" min="0">
+        <input id="p-unit" placeholder="একক (পিস/বাক্স/পাতা)">
+      </div>
+      <input id="p-min" type="number" placeholder="সর্বনিম্ন স্টক সতর্কতা (যেমন: 10)" min="0">
+      <button class="primary" onclick="addProduct()">প্রোডাক্ট যোগ করো</button>
     </div>
-    <div class="row c2">
-      <input id="p-qty" type="number" placeholder="পরিমাণ" min="0">
-      <input id="p-unit" placeholder="একক (পিস/বাক্স/পাতা)">
-    </div>
-    <input id="p-min" type="number" placeholder="সর্বনিম্ন স্টক সতর্কতা (যেমন: 10)" min="0">
-    <button class="primary" onclick="addProduct()">প্রোডাক্ট যোগ করো</button>
   </div>
   <div class="card">
     <h3>📋 স্টক তালিকা</h3>
@@ -199,16 +206,18 @@ td{padding:9px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
 <!-- CUSTOMER TAB -->
 <div id="tab-customer" class="section">
   <div class="card">
-    <h3>➕ নতুন ফার্মেসি/কাস্টমার যোগ করো</h3>
-    <div id="customer-msg" class="msg"></div>
-    <input id="c-name" placeholder="ফার্মেসির নাম">
-    <div class="row c2">
-      <input id="c-phone" placeholder="মোবাইল নম্বর" type="tel">
-      <input id="c-address" placeholder="ঠিকানা/এলাকা">
+    <h3 class="toggle-header" onclick="toggleCard(this)">➕ নতুন ফার্মেসি/কাস্টমার যোগ করো <span class="chev">▸</span></h3>
+    <div class="card-body collapsed">
+      <div id="customer-msg" class="msg"></div>
+      <input id="c-name" placeholder="ফার্মেসির নাম">
+      <div class="row c2">
+        <input id="c-phone" placeholder="মোবাইল নম্বর" type="tel">
+        <input id="c-address" placeholder="ঠিকানা/এলাকা">
+      </div>
+      <input type="hidden" id="c-edit-id" value="">
+      <textarea id="c-note" placeholder="নোট (যেমন: নগদ দেয়, নিয়মিত কিনে...)"></textarea>
+      <button class="primary" onclick="saveCustomer()">কাস্টমার সেভ করো</button>
     </div>
-    <input type="hidden" id="c-edit-id" value="">
-    <textarea id="c-note" placeholder="নোট (যেমন: নগদ দেয়, নিয়মিত কিনে...)"></textarea>
-    <button class="primary" onclick="saveCustomer()">কাস্টমার সেভ করো</button>
   </div>
   <div class="card">
     <h3>👥 ফার্মেসি তালিকা</h3>
@@ -245,49 +254,53 @@ td{padding:9px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
 
   <!-- মূলধন ও উত্তোলন -->
   <div class="card">
-    <h3>💰 মূলধন / উত্তোলন যোগ করো</h3>
-    <div id="capital-msg" class="msg"></div>
-    <div style="display:flex;gap:8px;margin-bottom:8px">
-      <button id="cap-btn-invest" onclick="setCapType('মূলধন বিনিয়োগ')" style="flex:1;padding:8px;font-size:13px;border:1px solid #1565c0;border-radius:8px;background:#1565c0;color:#fff;cursor:pointer">💵 মূলধন বিনিয়োগ</button>
-      <button id="cap-btn-withdraw" onclick="setCapType('মালিকের উত্তোলন')" style="flex:1;padding:8px;font-size:13px;border:1px solid #ddd;border-radius:8px;background:#fff;color:#555;cursor:pointer">💸 উত্তোলন</button>
+    <h3 class="toggle-header" onclick="toggleCard(this)">💰 মূলধন / উত্তোলন যোগ করো <span class="chev">▸</span></h3>
+    <div class="card-body collapsed">
+      <div id="capital-msg" class="msg"></div>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <button id="cap-btn-invest" class="toggle-pill active" onclick="setCapType('মূলধন বিনিয়োগ')">💵 মূলধন বিনিয়োগ</button>
+        <button id="cap-btn-withdraw" class="toggle-pill" onclick="setCapType('মালিকের উত্তোলন')">💸 উত্তোলন</button>
+      </div>
+      <input type="hidden" id="cap-type" value="মূলধন বিনিয়োগ">
+      <div class="row c2">
+        <input id="cap-amount" type="number" placeholder="পরিমাণ (৳)" min="0">
+        <input id="cap-date" type="date">
+      </div>
+      <input id="cap-note" placeholder="নোট (ঐচ্ছিক)">
+      <button class="primary" onclick="addCapitalEntry()">যোগ করো</button>
     </div>
-    <input type="hidden" id="cap-type" value="মূলধন বিনিয়োগ">
-    <div class="row c2">
-      <input id="cap-amount" type="number" placeholder="পরিমাণ (৳)" min="0">
-      <input id="cap-date" type="date">
-    </div>
-    <input id="cap-note" placeholder="নোট (ঐচ্ছিক)">
-    <button class="primary" onclick="addCapitalEntry()">যোগ করো</button>
   </div>
 
   <!-- ব্যবসার খরচ -->
   <div class="card">
-    <h3>🚗 ব্যবসার খরচ যোগ করো</h3>
-    <div id="expense-msg" class="msg"></div>
-    <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">
-      <button class="exp-btn active-exp" onclick="setExpType(this,'পরিবহন')" style="padding:6px 10px;font-size:12px;border:1px solid #1565c0;border-radius:20px;background:#1565c0;color:#fff;cursor:pointer">🚌 পরিবহন</button>
-      <button class="exp-btn" onclick="setExpType(this,'নাস্তা/খাওয়া')" style="padding:6px 10px;font-size:12px;border:1px solid #ddd;border-radius:20px;background:#fff;color:#555;cursor:pointer">🍔 নাস্তা</button>
-      <button class="exp-btn" onclick="setExpType(this,'মোবাইল রিচার্জ')" style="padding:6px 10px;font-size:12px;border:1px solid #ddd;border-radius:20px;background:#fff;color:#555;cursor:pointer">📱 রিচার্জ</button>
-      <button class="exp-btn" onclick="setExpType(this,'অন্যান্য')" style="padding:6px 10px;font-size:12px;border:1px solid #ddd;border-radius:20px;background:#fff;color:#555;cursor:pointer">📦 অন্যান্য</button>
+    <h3 class="toggle-header" onclick="toggleCard(this)">🚗 ব্যবসার খরচ যোগ করো <span class="chev">▸</span></h3>
+    <div class="card-body collapsed">
+      <div id="expense-msg" class="msg"></div>
+      <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">
+        <button class="exp-btn active-exp" onclick="setExpType(this,'পরিবহন')" style="padding:6px 10px;font-size:12px;border:1px solid #1565c0;border-radius:20px;background:#1565c0;color:#fff;cursor:pointer">🚌 পরিবহন</button>
+        <button class="exp-btn" onclick="setExpType(this,'নাস্তা/খাওয়া')" style="padding:6px 10px;font-size:12px;border:1px solid #ddd;border-radius:20px;background:#fff;color:#555;cursor:pointer">🍔 নাস্তা</button>
+        <button class="exp-btn" onclick="setExpType(this,'মোবাইল রিচার্জ')" style="padding:6px 10px;font-size:12px;border:1px solid #ddd;border-radius:20px;background:#fff;color:#555;cursor:pointer">📱 রিচার্জ</button>
+        <button class="exp-btn" onclick="setExpType(this,'অন্যান্য')" style="padding:6px 10px;font-size:12px;border:1px solid #ddd;border-radius:20px;background:#fff;color:#555;cursor:pointer">📦 অন্যান্য</button>
+      </div>
+      <input type="hidden" id="exp-type" value="পরিবহন">
+      <div class="row c2">
+        <input id="exp-amount" type="number" placeholder="পরিমাণ (৳)" min="0">
+        <input id="exp-date" type="date">
+      </div>
+      <input id="exp-note" placeholder="নোট (ঐচ্ছিক)">
+      <button class="primary" onclick="addExpenseEntry()">যোগ করো</button>
     </div>
-    <input type="hidden" id="exp-type" value="পরিবহন">
-    <div class="row c2">
-      <input id="exp-amount" type="number" placeholder="পরিমাণ (৳)" min="0">
-      <input id="exp-date" type="date">
-    </div>
-    <input id="exp-note" placeholder="নোট (ঐচ্ছিক)">
-    <button class="primary" onclick="addExpenseEntry()">যোগ করো</button>
   </div>
 
   <!-- খরচ ও মূলধনের ইতিহাস -->
   <div class="grid2">
     <div class="card" style="margin-bottom:0">
-      <h3>💰 মূলধন ইতিহাস</h3>
-      <div id="capital-list"></div>
+      <h3 class="toggle-header" onclick="toggleCard(this)">💰 মূলধন ইতিহাস <span class="chev">▸</span></h3>
+      <div class="card-body collapsed"><div id="capital-list"></div></div>
     </div>
     <div class="card" style="margin-bottom:0">
-      <h3>🚗 খরচের ইতিহাস</h3>
-      <div id="expense-list"></div>
+      <h3 class="toggle-header" onclick="toggleCard(this)">🚗 খরচের ইতিহাস <span class="chev">▸</span></h3>
+      <div class="card-body collapsed"><div id="expense-list"></div></div>
     </div>
   </div>
   <div style="margin-bottom:12px"></div>
@@ -311,22 +324,24 @@ td{padding:9px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
     <div id="total-due-summary"></div>
   </div>
   <div class="card">
-    <h3>🏆 সেরা কাস্টমার (মোট কেনা অনুযায়ী)</h3>
-    <div id="top-customers"></div>
+    <h3 class="toggle-header" onclick="toggleCard(this)">🏆 সেরা কাস্টমার (মোট কেনা অনুযায়ী) <span class="chev">▸</span></h3>
+    <div class="card-body collapsed"><div id="top-customers"></div></div>
   </div>
   <div class="card">
-    <h3>🏆 সবচেয়ে বেশি বিক্রি (টপ ৫)</h3>
-    <div id="top-products"></div>
+    <h3 class="toggle-header" onclick="toggleCard(this)">🏆 সবচেয়ে বেশি বিক্রি (টপ ৫) <span class="chev">▸</span></h3>
+    <div class="card-body collapsed"><div id="top-products"></div></div>
   </div>
   <div class="card">
-    <h3>📜 বিক্রয় ইতিহাস</h3>
-    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
-      <button class="filter-btn active" onclick="setFilter('all',this)">সব</button>
-      <button class="filter-btn" onclick="setFilter('today',this)">আজ</button>
-      <button class="filter-btn" onclick="setFilter('month',this)">এই মাস</button>
-      <button class="filter-btn" onclick="setFilter('year',this)">এই বছর</button>
+    <h3 class="toggle-header" onclick="toggleCard(this)">📜 বিক্রয় ইতিহাস <span class="chev">▸</span></h3>
+    <div class="card-body collapsed">
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+        <button class="filter-btn active" onclick="setFilter('all',this)">সব</button>
+        <button class="filter-btn" onclick="setFilter('today',this)">আজ</button>
+        <button class="filter-btn" onclick="setFilter('month',this)">এই মাস</button>
+        <button class="filter-btn" onclick="setFilter('year',this)">এই বছর</button>
+      </div>
+      <div id="all-sales"></div>
     </div>
-    <div id="all-sales"></div>
   </div>
 </div>
 
@@ -624,6 +639,14 @@ function toggleProfitView(){
   btn.textContent = document.body.classList.contains('profit-hidden') ? '👁️ লাভ' : '🙈 লুকাও';
 }
 
+function toggleCard(headerEl){
+  const body = headerEl.nextElementSibling;
+  if(!body) return;
+  body.classList.toggle('collapsed');
+  const chev = headerEl.querySelector('.chev');
+  if(chev) chev.textContent = body.classList.contains('collapsed') ? '▸' : '▾';
+}
+
 function showTab(t, btn){
   document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
@@ -915,7 +938,15 @@ function editCustomer(id){
   document.getElementById('c-address').value=c.address||'';
   document.getElementById('c-note').value=c.note||'';
   document.getElementById('c-edit-id').value=c.id;
-  document.querySelector('#tab-customer .card').scrollIntoView({behavior:'smooth'});
+  // এডিট করতে চাইলে ফর্মটা বন্ধ (collapsed) থাকলেও খুলে দাও, নাহলে ইনপুটগুলো দেখা যাবে না
+  const addCard = document.querySelector('#tab-customer .card');
+  const body = addCard.querySelector('.card-body');
+  const header = addCard.querySelector('.toggle-header');
+  if(body && body.classList.contains('collapsed')){
+    body.classList.remove('collapsed');
+    if(header){ const chev=header.querySelector('.chev'); if(chev) chev.textContent='▾'; }
+  }
+  addCard.scrollIntoView({behavior:'smooth'});
 }
 
 async function deleteCustomer(id){
@@ -1564,12 +1595,8 @@ async function toggleWorkDay(dateStr){
 // ---- REPORT ----
 function setCapType(type){
   document.getElementById('cap-type').value=type;
-  document.getElementById('cap-btn-invest').style.background=type==='মূলধন বিনিয়োগ'?'#1565c0':'#fff';
-  document.getElementById('cap-btn-invest').style.color=type==='মূলধন বিনিয়োগ'?'#fff':'#555';
-  document.getElementById('cap-btn-invest').style.borderColor=type==='মূলধন বিনিয়োগ'?'#1565c0':'#ddd';
-  document.getElementById('cap-btn-withdraw').style.background=type==='মালিকের উত্তোলন'?'#c62828':'#fff';
-  document.getElementById('cap-btn-withdraw').style.color=type==='মালিকের উত্তোলন'?'#fff':'#555';
-  document.getElementById('cap-btn-withdraw').style.borderColor=type==='মালিকের উত্তোলন'?'#c62828':'#ddd';
+  document.getElementById('cap-btn-invest').classList.toggle('active', type==='মূলধন বিনিয়োগ');
+  document.getElementById('cap-btn-withdraw').classList.toggle('active', type==='মালিকের উত্তোলন');
 }
 
 function setExpType(btn, type){
@@ -1673,6 +1700,7 @@ function renderBusinessOverview(){
   const totalDue = sales.reduce((a,s)=>a+Number(s.dueAmount||0),0);
   const stockValue = products.reduce((a,p)=>a+p.buyPrice*p.qty,0);
   const netProfit = totalSalesProfit - totalExpense - totalWithdrawal;
+  const cashOnHand = totalCapital+totalSalesProfit-totalExpense-totalWithdrawal-stockValue-totalDue;
 
   const el=document.getElementById('business-overview');
   if(!el)return;
@@ -1680,14 +1708,14 @@ function renderBusinessOverview(){
     ? `<div style="grid-column:1/-1;background:#ffebee;border:1px solid #ef9a9a;border-radius:8px;padding:10px;margin-bottom:8px;font-size:13px;color:#c62828;font-weight:600">⚠️ সতর্কতা: আপনি ব্যবসার লাভের চেয়ে বেশি উত্তোলন করেছেন — মূলধনে হাত পড়েছে (${fmt(netProfit)})</div>`
     : '';
   el.innerHTML= warning + `
-    <div class="metric"><div class="metric-label">মোট মূলধন বিনিয়োগ</div><div class="metric-val" style="color:#1565c0">${fmt(totalCapital)}</div></div>
+    <div class="metric"><div class="metric-label">মোট মূলধন বিনিয়োগ</div><div class="metric-val">${fmt(totalCapital)}</div></div>
     <div class="metric"><div class="metric-label">মোট বিক্রয় লাভ</div><div class="metric-val profit-val green">${fmt(totalSalesProfit)}</div></div>
-    <div class="metric"><div class="metric-label">মোট ব্যবসার খরচ</div><div class="metric-val red">${fmt(totalExpense)}</div></div>
+    <div class="metric"><div class="metric-label">মোট ব্যবসার খরচ</div><div class="metric-val">${fmt(totalExpense)}</div></div>
     <div class="metric"><div class="metric-label">প্রকৃত নিট লাভ (উত্তোলনের পর)</div><div class="metric-val profit-val ${netProfit<0?'red':'green'}">${fmt(netProfit)}</div></div>
-    <div class="metric"><div class="metric-label">মালিকের উত্তোলন</div><div class="metric-val" style="color:#e65100">${fmt(totalWithdrawal)}</div></div>
-    <div class="metric"><div class="metric-label">স্টকে আটকা মূলধন</div><div class="metric-val" style="color:#555">${fmt(stockValue)}</div></div>
+    <div class="metric"><div class="metric-label">মালিকের উত্তোলন</div><div class="metric-val">${fmt(totalWithdrawal)}</div></div>
+    <div class="metric"><div class="metric-label">স্টকে আটকা মূলধন</div><div class="metric-val">${fmt(stockValue)}</div></div>
     <div class="metric"><div class="metric-label">মোট বাকি পাওনা</div><div class="metric-val red">${fmt(totalDue)}</div></div>
-    <div class="metric"><div class="metric-label">আনুমানিক হাতে নগদ</div><div class="metric-val green">${fmt(totalCapital+totalSalesProfit-totalExpense-totalWithdrawal-stockValue-totalDue)}</div></div>
+    <div class="metric"><div class="metric-label">আনুমানিক হাতে নগদ</div><div class="metric-val ${cashOnHand<0?'red':'green'}">${fmt(cashOnHand)}</div></div>
   `;
 }
 
