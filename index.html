@@ -1378,21 +1378,21 @@ function shareBillWhatsApp(){
 }
 
 // ---- WEEKLY TARGET (সাপ্তাহিক টার্গেট) ----
-// সপ্তাহ ধরা হচ্ছে সোমবার থেকে রোববার পর্যন্ত (ISO সপ্তাহ)
+// সপ্তাহ ধরা হচ্ছে শনিবার থেকে শুক্রবার পর্যন্ত
 // সাপ্তাহিক "নেট লাভ" = ওই সপ্তাহের বিক্রয় লাভ (ছাড় বাদ দিয়ে) − ওই সপ্তাহের ব্যবসার খরচ
 // − ওই সপ্তাহে মালিকের উত্তোলন (সাংসারিক খরচের জন্য যা তোলা হয়েছে)
 // মূলধন বিনিয়োগ (মূলধন যোগ করা) এখানে ধরা হয়নি — সেটা লাভ না, ব্যবসায় নতুন টাকা ঢোকানো
 function getWeekRange(d){
   const date = new Date(d);
   const day = date.getDay(); // 0=রবি..6=শনি
-  const diffToMonday = day===0 ? -6 : 1-day;
-  const monday = new Date(date);
-  monday.setDate(date.getDate()+diffToMonday);
-  monday.setHours(0,0,0,0);
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate()+6);
-  sunday.setHours(23,59,59,999);
-  return {start:monday, end:sunday};
+  const diffToSaturday = (day - 6 + 7) % 7; // সর্বশেষ শনিবার কতদিন আগে ছিল
+  const saturday = new Date(date);
+  saturday.setDate(date.getDate()-diffToSaturday);
+  saturday.setHours(0,0,0,0);
+  const friday = new Date(saturday);
+  friday.setDate(saturday.getDate()+6);
+  friday.setHours(23,59,59,999);
+  return {start:saturday, end:friday};
 }
 function weekKey(d){
   const {start} = getWeekRange(d);
