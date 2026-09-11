@@ -231,6 +231,10 @@ td{padding:9px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
     <h3>🎯 সাপ্তাহিক টার্গেট (নেট লাভ)</h3>
     <div id="target-msg" class="msg"></div>
     <div id="target-progress"></div>
+    <div style="margin-top:10px">
+      <div style="font-size:12px;color:#888;margin-bottom:6px">এই সপ্তাহে কোন দিন দোকান/কাজ বন্ধ ছিল? (ক্লিক করে মার্ক করো)</div>
+      <div id="workdays-row" style="display:flex;gap:5px;flex-wrap:wrap"></div>
+    </div>
     <div class="row c2" style="margin-top:10px">
       <input id="target-amount" type="number" placeholder="এই সপ্তাহের টার্গেট (৳)" min="0">
       <button class="primary" style="margin-top:0" onclick="saveWeeklyTarget()">সেভ করো</button>
@@ -390,7 +394,7 @@ td{padding:9px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
 // Cloudflare Worker proxy দিয়ে Google Sheets-এ data save/load করো
 const API = 'https://script.google.com/macros/s/AKfycbyENClgBhWyHtJHKh5AR1RVZp28xC12KEv28KqqCbDl0Ip3FsV_WWO2szkS-J50BX7M/exec';
 
-let products = [], sales = [], customers = [], payments = [], expenses = [], capital = [], targets = [];
+let products = [], sales = [], customers = [], payments = [], expenses = [], capital = [], targets = [], closedDays = [];
 let selectedRating = 0;
 let currentFilter = 'all';
 let lastSale = null;
@@ -469,6 +473,7 @@ function saveLocal(){
     localStorage.setItem('med_expenses', JSON.stringify(expenses));
     localStorage.setItem('med_capital', JSON.stringify(capital));
     localStorage.setItem('med_targets', JSON.stringify(targets));
+    localStorage.setItem('med_closedDays', JSON.stringify(closedDays));
   }catch(e){}
 }
 function loadLocal(){
@@ -480,6 +485,7 @@ function loadLocal(){
     expenses  = JSON.parse(localStorage.getItem('med_expenses')||'[]');
     capital   = JSON.parse(localStorage.getItem('med_capital')||'[]');
     targets   = JSON.parse(localStorage.getItem('med_targets')||'[]');
+    closedDays = JSON.parse(localStorage.getItem('med_closedDays')||'[]');
   }catch(e){}
 }
 function updateSyncBadge(){
@@ -512,6 +518,7 @@ async function apiGet(){
     expenses  = data.expenses  || [];
     capital   = data.capital   || [];
     targets   = data.targets   || [];
+    closedDays = data.closedDays || [];
     saveLocal();
   }catch(e){ loadLocal(); }
 }
@@ -551,6 +558,7 @@ async function init(){
       expenses  = data.expenses  || expenses;
       capital   = data.capital   || capital;
       targets   = data.targets   || targets;
+      closedDays = data.closedDays || closedDays;
       saveLocal();
       renderStock(); renderCustomerDropdown();
       const activeTab = document.querySelector('.tab.active');
@@ -598,6 +606,7 @@ async function manualSync(){
     expenses  = data.expenses  || expenses;
     capital   = data.capital   || capital;
     targets   = data.targets   || targets;
+    closedDays = data.closedDays || closedDays;
     saveLocal();
     renderStock(); renderCustomerDropdown();
     const activeTab = document.querySelector('.tab.active');
@@ -621,7 +630,7 @@ function showTab(t, btn){
   document.getElementById('tab-'+t).classList.add('active');
   if(btn) btn.classList.add('active');
   if(t==='report') renderReport();
-  if(t==='hisab'){ renderExpenseCapitalLists(); renderWeeklyTarget(); renderTargetHistory(); }
+  if(t==='hisab'){ renderExpenseCapitalLists(); renderWeeklyTarget(); renderTargetHistory(); renderWorkDaysRow(); }
   if(t==='sale'){ renderCustomerDropdown(); renderTodaySales(); }
   if(t==='stock') renderStock();
   if(t==='customer') renderCustomers();
@@ -1503,6 +1512,55 @@ function renderTargetHistory(){
     }).join('')+'</tbody></table>';
 }
 
+// ---- WORK DAYS (কোন দিন দোকান/কাজ বন্ধ ছিল তার ট্র্যাক) ----
+// ডিফল্টে সব দিন "খোলা" ধরা হয়; শুধু বন্ধ থাকা দিনগুলো আলাদাভাবে মার্ক করে রাখা হয়
+const DAY_NAMES_SHORT = ['শনি','রবি','সোম','মঙ্গল','বুধ','বৃহ','শুক্র'];
+function dateToStr(d){
+  const dt = new Date(d);
+  dt.setHours(0,0,0,0);
+  const y=dt.getFullYear(), m=String(dt.getMonth()+1).padStart(2,'0'), day=String(dt.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function renderWorkDaysRow(){
+  const row = document.getElementById('workdays-row');
+  if(!row) return;
+  const now = new Date();
+  const {start} = getWeekRange(now);
+  const todayStr = dateToStr(now);
+  let html = '';
+  for(let i=0;i<7;i++){
+    const d = new Date(start); d.setDate(start.getDate()+i);
+    const dStr = dateToStr(d);
+    const closed = closedDays.find(x=>x.date===dStr);
+    const isFuture = dStr > todayStr;
+    const label = DAY_NAMES_SHORT[i]+' '+d.getDate();
+    const bg = closed ? '#ffebee' : (isFuture ? '#f5f5f5' : '#e8f5e9');
+    const color = closed ? '#c62828' : (isFuture ? '#aaa' : '#2e7d32');
+    const border = closed ? '#ef9a9a' : (isFuture ? '#ddd' : '#a5d6a7');
+    html += `<button class="sm" title="${closed&&closed.reason?closed.reason:''}" onclick="toggleWorkDay('${dStr}')"
+      style="flex:1;min-width:40px;padding:6px 2px;font-size:11px;background:${bg};color:${color};border-color:${border};white-space:nowrap">
+      ${closed?'❌':'✅'}<br>${label}</button>`;
+  }
+  const closedCount = closedDays.filter(x=>{ const {start:s,end:e}=getWeekRange(now); const dt=new Date(x.date+'T00:00:00'); return dt>=s&&dt<=e; }).length;
+  row.innerHTML = html + `<div style="width:100%;font-size:11px;color:#888;margin-top:4px;text-align:center">এই সপ্তাহে খোলা ছিল ${7-closedCount}/৭ দিন</div>`;
+}
+async function toggleWorkDay(dateStr){
+  const existing = closedDays.find(x=>x.date===dateStr);
+  if(existing){
+    if(!confirm('এই দিনটাকে আবার "খোলা ছিল" হিসেবে চিহ্নিত করবে?')) return;
+    closedDays = closedDays.filter(x=>x.id!==existing.id);
+    saveLocal();
+    await apiPost({action:'deleteClosedDay', id:existing.id});
+  } else {
+    const reason = prompt('কেন বন্ধ ছিল? (যেমন: বৃষ্টি, অসুস্থতা, ব্যক্তিগত কারণ — ঐচ্ছিক, খালি রাখতে পারেন)','') || '';
+    const entry = {id:Date.now(), date:dateStr, reason};
+    closedDays.push(entry);
+    saveLocal();
+    await apiPost({action:'saveClosedDay', entry});
+  }
+  renderWorkDaysRow();
+}
+
 // ---- REPORT ----
 function setCapType(type){
   document.getElementById('cap-type').value=type;
@@ -1563,30 +1621,45 @@ async function deleteCapitalEntry(id){
   await apiPost({action:'deleteCapital',id}); renderExpenseCapitalLists(); renderWeeklyTarget(); renderTargetHistory();
 }
 
-function renderExpenseCapitalLists(){
-  // Capital list
-  const cl=document.getElementById('capital-list');
-  if(!capital.length) cl.innerHTML='<div class="empty">কোনো এন্ট্রি নেই</div>';
-  else cl.innerHTML=[...capital].reverse().map(c=>`
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f5f5f5;font-size:13px">
-      <div>
-        <div style="font-weight:600;color:${c.type==='মূলধন বিনিয়োগ'?'#1565c0':'#c62828'}">${c.type==='মূলধন বিনিয়োগ'?'💵':'💸'} ${fmt(c.amount)}</div>
-        <div style="font-size:11px;color:#888">${new Date(c.date).toLocaleDateString('bn-BD')} ${c.note?'• '+c.note:''}</div>
-      </div>
-      <button class="sm danger del-capital" data-id="${c.id}">✕</button>
-    </div>`).join('');
+let showAllCapital = false, showAllExpense = false;
+function toggleShowAllCapital(){ showAllCapital=!showAllCapital; renderExpenseCapitalLists(); }
+function toggleShowAllExpense(){ showAllExpense=!showAllExpense; renderExpenseCapitalLists(); }
+const HISTORY_PREVIEW_COUNT = 5;
 
-  // Expense list
+function renderExpenseCapitalLists(){
+  // Capital list — ডিফল্টে সাম্প্রতিক কয়েকটা দেখায়, "সব দেখাও" চাপলে পুরোটা
+  const cl=document.getElementById('capital-list');
+  if(!capital.length){ cl.innerHTML='<div class="empty">কোনো এন্ট্রি নেই</div>'; }
+  else {
+    const sorted=[...capital].reverse();
+    const shown = showAllCapital ? sorted : sorted.slice(0, HISTORY_PREVIEW_COUNT);
+    cl.innerHTML = shown.map(c=>`
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f5f5f5;font-size:13px">
+        <div>
+          <div style="font-weight:600;color:${c.type==='মূলধন বিনিয়োগ'?'#1565c0':'#c62828'}">${c.type==='মূলধন বিনিয়োগ'?'💵':'💸'} ${fmt(c.amount)}</div>
+          <div style="font-size:11px;color:#888">${new Date(c.date).toLocaleDateString('bn-BD')} ${c.note?'• '+c.note:''}</div>
+        </div>
+        <button class="sm danger del-capital" data-id="${c.id}">✕</button>
+      </div>`).join('')
+      + (sorted.length>HISTORY_PREVIEW_COUNT ? `<button class="sm" style="width:100%;margin-top:8px;background:#e3f2fd;color:#1565c0;border-color:#90caf9" onclick="toggleShowAllCapital()">${showAllCapital?'▲ কম দেখাও':'▼ সব দেখাও ('+sorted.length+')'}</button>` : '');
+  }
+
+  // Expense list — একইভাবে সংক্ষিপ্ত/বিস্তৃত টগল
   const el=document.getElementById('expense-list');
-  if(!expenses.length) el.innerHTML='<div class="empty">কোনো খরচ নেই</div>';
-  else el.innerHTML=[...expenses].reverse().map(e=>`
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f5f5f5;font-size:13px">
-      <div>
-        <div style="font-weight:600;color:#e65100">${e.type}: ${fmt(e.amount)}</div>
-        <div style="font-size:11px;color:#888">${new Date(e.date).toLocaleDateString('bn-BD')} ${e.note?'• '+e.note:''}</div>
-      </div>
-      <button class="sm danger del-expense" data-id="${e.id}">✕</button>
-    </div>`).join('');
+  if(!expenses.length){ el.innerHTML='<div class="empty">কোনো খরচ নেই</div>'; }
+  else {
+    const sorted=[...expenses].reverse();
+    const shown = showAllExpense ? sorted : sorted.slice(0, HISTORY_PREVIEW_COUNT);
+    el.innerHTML = shown.map(e=>`
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f5f5f5;font-size:13px">
+        <div>
+          <div style="font-weight:600;color:#e65100">${e.type}: ${fmt(e.amount)}</div>
+          <div style="font-size:11px;color:#888">${new Date(e.date).toLocaleDateString('bn-BD')} ${e.note?'• '+e.note:''}</div>
+        </div>
+        <button class="sm danger del-expense" data-id="${e.id}">✕</button>
+      </div>`).join('')
+      + (sorted.length>HISTORY_PREVIEW_COUNT ? `<button class="sm" style="width:100%;margin-top:8px;background:#e3f2fd;color:#1565c0;border-color:#90caf9" onclick="toggleShowAllExpense()">${showAllExpense?'▲ কম দেখাও':'▼ সব দেখাও ('+sorted.length+')'}</button>` : '');
+  }
 
   // Business overview
   renderBusinessOverview();
