@@ -1380,8 +1380,9 @@ function shareBillWhatsApp(){
 // ---- WEEKLY TARGET (সাপ্তাহিক টার্গেট) ----
 // সপ্তাহ ধরা হচ্ছে শনিবার থেকে শুক্রবার পর্যন্ত
 // সাপ্তাহিক "নেট লাভ" = ওই সপ্তাহের বিক্রয় লাভ (ছাড় বাদ দিয়ে) − ওই সপ্তাহের ব্যবসার খরচ
-// − ওই সপ্তাহে মালিকের উত্তোলন (সাংসারিক খরচের জন্য যা তোলা হয়েছে)
-// মূলধন বিনিয়োগ (মূলধন যোগ করা) এখানে ধরা হয়নি — সেটা লাভ না, ব্যবসায় নতুন টাকা ঢোকানো
+// এটা ব্যবসায়িক পারফরম্যান্স মাপে — মালিকের উত্তোলন (সংসার খরচ/বেতন) এখানে বাদ দেওয়া হয়েছে,
+// কারণ সেটা প্রতি সপ্তাহেই নিয়মিতভাবে হয় এবং ব্যবসা কতটা ভালো চলছে সেটার সূচক না।
+// তবে ওই সপ্তাহের উত্তোলন আলাদাভাবে তথ্যের জন্য নিচে দেখানো হয় (টার্গেটে যোগ হয় না)।
 function getWeekRange(d){
   const date = new Date(d);
   const day = date.getDay(); // 0=রবি..6=শনি
@@ -1399,7 +1400,7 @@ function weekKey(d){
   return start.toISOString().split('T')[0];
 }
 function calcWeekNetProfit(start,end){
-  let profit=0, expense=0, withdrawal=0;
+  let profit=0, expense=0;
   sales.forEach(s=>{
     const sd=new Date(s.date);
     if(sd>=start && sd<=end) profit += s.items.reduce((a,i)=>a+(i.sellPrice-i.buyPrice)*i.qty,0) - Number(s.discount||0);
@@ -1408,13 +1409,18 @@ function calcWeekNetProfit(start,end){
     const ed=new Date(e.date);
     if(ed>=start && ed<=end) expense += Number(e.amount);
   });
+  return profit - expense;
+}
+// শুধু তথ্যের জন্য — এই সপ্তাহে মালিক কত উত্তোলন করেছেন, টার্গেটের হিসাবে যোগ হয় না
+function calcWeekWithdrawal(start,end){
+  let withdrawal=0;
   capital.forEach(c=>{
     if(c.type==='মালিকের উত্তোলন'){
       const cd=new Date(c.date);
       if(cd>=start && cd<=end) withdrawal += Number(c.amount);
     }
   });
-  return profit - expense - withdrawal;
+  return withdrawal;
 }
 function renderWeeklyTarget(){
   const now = new Date();
@@ -1422,6 +1428,7 @@ function renderWeeklyTarget(){
   const key = weekKey(now);
   const t = targets.find(x=>x.weekStart===key);
   const achieved = calcWeekNetProfit(start,end);
+  const weekWithdrawal = calcWeekWithdrawal(start,end);
   const targetAmt = t ? Number(t.targetAmount) : 0;
   const amtInput = document.getElementById('target-amount');
   if(amtInput) amtInput.value = t ? t.targetAmount : '';
@@ -1429,10 +1436,14 @@ function renderWeeklyTarget(){
   if(!el) return;
   const daysLeft = Math.max(0, Math.ceil((end - now)/(1000*60*60*24)));
   const dateFmt = d=>d.toLocaleDateString('bn-BD',{day:'numeric',month:'short'});
+  const withdrawalNote = weekWithdrawal>0
+    ? `<div style="font-size:11px;color:#e65100;text-align:center;margin-top:6px">ℹ️ এই সপ্তাহে উত্তোলন হয়েছে ${fmt(weekWithdrawal)} (তথ্যের জন্য — টার্গেটে ধরা হয়নি)</div>`
+    : '';
   if(!targetAmt){
     el.innerHTML = `<div style="font-size:12px;color:#888;margin-bottom:8px">এই সপ্তাহ: ${dateFmt(start)} - ${dateFmt(end)}</div>
       <div class="empty" style="padding:14px">এই সপ্তাহের জন্য এখনো কোনো টার্গেট সেট করা হয়নি</div>
-      <div style="font-size:13px;color:#555;text-align:center">এখন পর্যন্ত নেট লাভ: <strong class="profit-val" style="color:${achieved<0?'#c62828':'#2e7d32'}">${fmt(achieved)}</strong></div>`;
+      <div style="font-size:13px;color:#555;text-align:center">এখন পর্যন্ত নেট লাভ: <strong class="profit-val" style="color:${achieved<0?'#c62828':'#2e7d32'}">${fmt(achieved)}</strong></div>
+      ${withdrawalNote}`;
     return;
   }
   const pct = targetAmt>0 ? Math.min(100, Math.max(0, Math.round(achieved/targetAmt*100))) : 0;
@@ -1450,7 +1461,8 @@ function renderWeeklyTarget(){
     </div>
     <div style="font-size:12px;color:#555;text-align:center">
       ${hit ? '🎉 এই সপ্তাহের টার্গেট পূরণ হয়ে গেছে!' : pct+'% সম্পন্ন — আরও '+fmt(remaining)+' দরকার'}
-    </div>`;
+    </div>
+    ${withdrawalNote}`;
 }
 
 async function saveWeeklyTarget(){
