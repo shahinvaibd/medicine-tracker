@@ -141,6 +141,35 @@ td{padding:7px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
     <button class="sm" style="width:100%;background:#e3f2fd;color:#1565c0;border-color:#90caf9;padding:9px;margin-bottom:10px" onclick="openRecount()">📋 সম্পূর্ণ স্টক গণনা করো (একসাথে সব ঠিক করো)</button>
     <div id="stock-table"></div>
   </div>
+  <div class="card">
+    <h3 class="toggle-header" onclick="toggleCard(this)"><span>🛍️ পাইকারি কেনাকাটার তালিকা <span id="buylist-count-badge" style="font-size:11px;color:#1565c0;font-weight:600"></span></span><span class="chev">▸</span></h3>
+    <div class="card-body collapsed">
+      <div id="buylist-msg" class="msg"></div>
+      <button class="sm" style="width:100%;background:#e3f2fd;color:#1565c0;border-color:#90caf9;padding:9px;margin-bottom:10px" onclick="generateBuyListFromStock()">🔄 কম/শেষ স্টক থেকে তালিকা তৈরি করো</button>
+      <input id="buy-product" placeholder="প্রোডাক্টের নাম (হাতে যোগ করতে)">
+      <div class="row c2">
+        <input id="buy-qty" placeholder="পরিমাণ (ঐচ্ছিক)">
+        <input id="buy-note" placeholder="নোট (ঐচ্ছিক)">
+      </div>
+      <button class="primary" onclick="addBuyItem()">তালিকায় যোগ করো</button>
+      <div id="buylist-items" style="margin-top:10px"></div>
+      <button class="sm" style="width:100%;margin-top:8px" onclick="clearCheckedBuyItems(this)">✓ কেনা হওয়া সব মুছে ফেলো</button>
+    </div>
+  </div>
+  <div class="card">
+    <h3 class="toggle-header" onclick="toggleCard(this)"><span>📝 চাহিদার তালিকা (স্টকে নেই) <span id="wanted-count-badge" style="font-size:11px;color:#c62828;font-weight:600"></span></span><span class="chev">▸</span></h3>
+    <div class="card-body collapsed">
+      <div id="wanted-msg" class="msg"></div>
+      <input id="w-product" placeholder="প্রোডাক্টের নাম (যা চেয়েছে)">
+      <div class="row c2">
+        <input id="w-customer" placeholder="কোন ফার্মেসি/কাস্টমার (ঐচ্ছিক)">
+        <input id="w-qty" placeholder="পরিমাণ (ঐচ্ছিক)">
+      </div>
+      <input id="w-note" placeholder="নোট (ঐচ্ছিক)">
+      <button class="primary" onclick="addWantedItem()">তালিকায় যোগ করো</button>
+      <div id="wanted-list" style="margin-top:10px"></div>
+    </div>
+  </div>
 </div>
 
 <!-- FULL STOCK RECOUNT MODAL -->
@@ -409,7 +438,7 @@ td{padding:7px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
 // Cloudflare Worker proxy দিয়ে Google Sheets-এ data save/load করো
 const API = 'https://script.google.com/macros/s/AKfycbyENClgBhWyHtJHKh5AR1RVZp28xC12KEv28KqqCbDl0Ip3FsV_WWO2szkS-J50BX7M/exec';
 
-let products = [], sales = [], customers = [], payments = [], expenses = [], capital = [], targets = [], closedDays = [];
+let products = [], sales = [], customers = [], payments = [], expenses = [], capital = [], targets = [], closedDays = [], wantedItems = [], buyList = [];
 let selectedRating = 0;
 let currentFilter = 'all';
 let lastSale = null;
@@ -489,6 +518,8 @@ function saveLocal(){
     localStorage.setItem('med_capital', JSON.stringify(capital));
     localStorage.setItem('med_targets', JSON.stringify(targets));
     localStorage.setItem('med_closedDays', JSON.stringify(closedDays));
+    localStorage.setItem('med_wantedItems', JSON.stringify(wantedItems));
+    localStorage.setItem('med_buyList', JSON.stringify(buyList));
   }catch(e){}
 }
 function loadLocal(){
@@ -501,6 +532,8 @@ function loadLocal(){
     capital   = JSON.parse(localStorage.getItem('med_capital')||'[]');
     targets   = JSON.parse(localStorage.getItem('med_targets')||'[]');
     closedDays = JSON.parse(localStorage.getItem('med_closedDays')||'[]');
+    wantedItems = JSON.parse(localStorage.getItem('med_wantedItems')||'[]');
+    buyList = JSON.parse(localStorage.getItem('med_buyList')||'[]');
   }catch(e){}
 }
 function updateSyncBadge(){
@@ -534,6 +567,8 @@ async function apiGet(){
     capital   = data.capital   || [];
     targets   = data.targets   || [];
     closedDays = data.closedDays || [];
+    wantedItems = data.wantedItems || [];
+    buyList = data.buyList || [];
     saveLocal();
   }catch(e){ loadLocal(); }
 }
@@ -552,7 +587,7 @@ async function init(){
   loadLocal();
   document.getElementById('exp-date').value = todayStr;
   document.getElementById('cap-date').value = todayStr;
-  updateSyncBadge(); renderStock(); renderCustomerDropdown(); addSaleRow();
+  updateSyncBadge(); renderStock(); renderWantedItems(); renderBuyList(); renderCustomerDropdown(); addSaleRow();
 
   // ২. background-এ Google Sheets থেকে নতুন data আনো
   if(isOnline()){
@@ -574,6 +609,8 @@ async function init(){
       capital   = data.capital   || capital;
       targets   = data.targets   || targets;
       closedDays = data.closedDays || closedDays;
+      wantedItems = data.wantedItems || wantedItems;
+      buyList = data.buyList || buyList;
       saveLocal();
       renderStock(); renderCustomerDropdown();
       const activeTab = document.querySelector('.tab.active');
@@ -622,6 +659,8 @@ async function manualSync(){
     capital   = data.capital   || capital;
     targets   = data.targets   || targets;
     closedDays = data.closedDays || closedDays;
+    wantedItems = data.wantedItems || wantedItems;
+    buyList = data.buyList || buyList;
     saveLocal();
     renderStock(); renderCustomerDropdown();
     const activeTab = document.querySelector('.tab.active');
@@ -655,7 +694,7 @@ function showTab(t, btn){
   if(t==='report') renderReport();
   if(t==='hisab'){ renderExpenseCapitalLists(); renderWeeklyTarget(); renderTargetHistory(); renderWorkDaysRow(); }
   if(t==='sale'){ renderCustomerDropdown(); renderTodaySales(); }
-  if(t==='stock') renderStock();
+  if(t==='stock'){ renderStock(); renderWantedItems(); renderBuyList(); }
   if(t==='customer') renderCustomers();
 }
 
@@ -878,6 +917,191 @@ async function deleteProduct(id){
   await apiPost({action:'deleteProduct', id});
   renderStock();
 }
+
+// ---- চাহিদার তালিকা (WANTED LIST) — মার্কেটিং-এ যা চাওয়া হয়েছে কিন্তু স্টকে নেই ----
+async function addWantedItem(){
+  const productName = document.getElementById('w-product').value.trim();
+  const customerName = document.getElementById('w-customer').value.trim();
+  const qty = document.getElementById('w-qty').value.trim();
+  const note = document.getElementById('w-note').value.trim();
+  if(!productName){ showMsg('wanted-msg','প্রোডাক্টের নাম লিখো','error'); return; }
+  const item = {id:Date.now(), date:new Date().toISOString(), productName, customerName, qty, note, status:'pending'};
+  wantedItems.push(item);
+  saveLocal();
+  showMsg('wanted-msg', 'তালিকায় যোগ হয়েছে ✓', 'success');
+  const ok = await apiPost({action:'saveWantedItem', item});
+  if(!ok) showMsg('wanted-msg', 'সার্ভারে সেভ হয়নি, অটো-রিট্রাই হবে', 'error');
+  ['w-product','w-customer','w-qty','w-note'].forEach(id=>document.getElementById(id).value='');
+  renderWantedItems();
+}
+
+function renderWantedItems(){
+  const el = document.getElementById('wanted-list');
+  const badge = document.getElementById('wanted-count-badge');
+  if(!el) return;
+  const pending = wantedItems.filter(w=>w.status!=='done');
+  if(badge) badge.textContent = pending.length ? `(${pending.length}টি বাকি)` : '';
+  if(!wantedItems.length){ el.innerHTML='<div class="empty">তালিকা খালি — মার্কেটিং-এ কোনো প্রোডাক্ট চাইলে এখানে টুকে রাখুন</div>'; return; }
+  // বাকি (pending) থাকা আইটেমগুলো আগে, পাওয়া গেছে এমনগুলো নিচে; একই গ্রুপের মধ্যে নতুনগুলো আগে
+  const sorted = [...wantedItems].sort((a,b)=> (a.status==='done')-(b.status==='done') || new Date(b.date)-new Date(a.date));
+  el.innerHTML = sorted.map(w=>`
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid #f5f5f5;${w.status==='done'?'opacity:0.5':''}">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:13px;${w.status==='done'?'text-decoration:line-through':''}">${w.productName}${w.qty?' — '+w.qty:''}</div>
+        <div style="font-size:11px;color:#888">${w.customerName?'🏪 '+w.customerName+' • ':''}${new Date(w.date).toLocaleDateString('bn-BD')}${w.note?' • '+w.note:''}</div>
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        ${w.status!=='done'?`<button class="sm" style="background:#e8f5e9;color:#2e7d32;border-color:#a5d6a7" onclick="markWantedDone('${w.id}')">✓ পাওয়া গেছে</button>`:''}
+        <button class="sm danger" onclick="deleteWantedItem('${w.id}', this)">✕</button>
+      </div>
+    </div>`).join('');
+}
+
+async function markWantedDone(id){
+  const w = wantedItems.find(x=>String(x.id)===String(id)); if(!w) return;
+  w.status = 'done';
+  saveLocal();
+  await apiPost({action:'saveWantedItem', item:w});
+  renderWantedItems();
+}
+
+async function deleteWantedItem(id, btn){
+  // মোবাইলে window.confirm() অনেক সময় ঠিকমতো কাজ করে না, তাই পপ-আপের বদলে
+  // "দুইবার ট্যাপ করে নিশ্চিত করো" পদ্ধতি — প্রথম ট্যাপে বাটন লাল হয়ে "নিশ্চিত?" দেখাবে
+  if(btn && btn.dataset.confirm !== 'yes'){
+    btn.dataset.confirm = 'yes';
+    btn.textContent = 'নিশ্চিত?';
+    btn.style.background = '#c62828';
+    btn.style.color = '#fff';
+    btn.style.borderColor = '#c62828';
+    clearTimeout(btn._resetTimer);
+    btn._resetTimer = setTimeout(()=>{
+      if(btn.dataset.confirm==='yes'){
+        btn.dataset.confirm='';
+        btn.textContent='✕';
+        btn.style.background=''; btn.style.color=''; btn.style.borderColor='';
+      }
+    }, 3000);
+    return;
+  }
+  wantedItems = wantedItems.filter(x=>String(x.id)!==String(id));
+  saveLocal();
+  renderWantedItems();
+  await apiPost({action:'deleteWantedItem', id});
+}
+
+// ---- পাইকারি কেনাকাটার তালিকা (BUY LIST) — কম/শেষ স্টক থেকে চেকলিস্ট বানিয়ে বাজারে গিয়ে টিক দেওয়া ----
+function generateBuyListFromStock(){
+  const lowOut = products.filter(p=>p.qty<=p.minQty);
+  if(!lowOut.length){ showMsg('buylist-msg','এই মুহূর্তে কম/শেষ স্টকে কোনো প্রোডাক্ট নেই ✓','success'); return; }
+  let addedCount = 0;
+  const idBase = Date.now();
+  lowOut.forEach((p,i)=>{
+    // একই প্রোডাক্ট আগে থেকে তালিকায় (এখনো কেনা হয়নি এমন অবস্থায়) থাকলে আবার যোগ কোরো না
+    const exists = buyList.find(b=>!b.checked && b.productName.toLowerCase()===p.name.toLowerCase());
+    if(exists) return;
+    const item = {id:idBase+i, productName:p.name, qty:'', note:`বর্তমান স্টক: ${p.qty} ${p.unit}`, checked:false, date:new Date().toISOString()};
+    buyList.push(item);
+    addedCount++;
+    apiPost({action:'saveBuyItem', item});
+  });
+  saveLocal();
+  renderBuyList();
+  showMsg('buylist-msg', addedCount ? `${addedCount}টা প্রোডাক্ট তালিকায় যোগ হয়েছে ✓` : 'সব প্রোডাক্টই ইতিমধ্যে তালিকায় আছে', 'success');
+}
+
+async function addBuyItem(){
+  const productName = document.getElementById('buy-product').value.trim();
+  const qty = document.getElementById('buy-qty').value.trim();
+  const note = document.getElementById('buy-note').value.trim();
+  if(!productName){ showMsg('buylist-msg','প্রোডাক্টের নাম লিখো','error'); return; }
+  const item = {id:Date.now(), productName, qty, note, checked:false, date:new Date().toISOString()};
+  buyList.push(item);
+  saveLocal();
+  showMsg('buylist-msg', 'তালিকায় যোগ হয়েছে ✓', 'success');
+  const ok = await apiPost({action:'saveBuyItem', item});
+  if(!ok) showMsg('buylist-msg', 'সার্ভারে সেভ হয়নি, অটো-রিট্রাই হবে', 'error');
+  ['buy-product','buy-qty','buy-note'].forEach(id=>document.getElementById(id).value='');
+  renderBuyList();
+}
+
+function renderBuyList(){
+  const el = document.getElementById('buylist-items');
+  const badge = document.getElementById('buylist-count-badge');
+  if(!el) return;
+  const uncheckedCount = buyList.filter(b=>!b.checked).length;
+  if(badge) badge.textContent = buyList.length ? `(${uncheckedCount}/${buyList.length} বাকি)` : '';
+  if(!buyList.length){ el.innerHTML='<div class="empty">তালিকা খালি — উপরের বাটনে চেপে কম স্টক থেকে তালিকা তৈরি করুন</div>'; return; }
+  // যা এখনো কেনা হয়নি সেগুলো আগে দেখাবে, পুরনোগুলো আগে
+  const sorted = [...buyList].sort((a,b)=> (a.checked - b.checked) || (new Date(a.date)-new Date(b.date)));
+  el.innerHTML = sorted.map(b=>`
+    <div style="display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid #f5f5f5;${b.checked?'opacity:0.5':''}">
+      <input type="checkbox" ${b.checked?'checked':''} onchange="toggleBuyChecked('${b.id}')" style="width:20px;height:20px;padding:0;margin:2px 0 0;flex-shrink:0;accent-color:#1565c0">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:13px;${b.checked?'text-decoration:line-through':''}">${b.productName}${b.qty?' — '+b.qty:''}</div>
+        ${b.note?`<div style="font-size:11px;color:#888">${b.note}</div>`:''}
+      </div>
+      <button class="sm danger" onclick="deleteBuyItem('${b.id}', this)" style="flex-shrink:0">✕</button>
+    </div>`).join('');
+}
+
+async function toggleBuyChecked(id){
+  const b = buyList.find(x=>String(x.id)===String(id)); if(!b) return;
+  b.checked = !b.checked;
+  saveLocal();
+  renderBuyList();
+  await apiPost({action:'saveBuyItem', item:b});
+}
+
+async function deleteBuyItem(id, btn){
+  if(btn && btn.dataset.confirm !== 'yes'){
+    btn.dataset.confirm = 'yes';
+    btn.textContent = 'নিশ্চিত?';
+    btn.style.background = '#c62828';
+    btn.style.color = '#fff';
+    btn.style.borderColor = '#c62828';
+    clearTimeout(btn._resetTimer);
+    btn._resetTimer = setTimeout(()=>{
+      if(btn.dataset.confirm==='yes'){
+        btn.dataset.confirm='';
+        btn.textContent='✕';
+        btn.style.background=''; btn.style.color=''; btn.style.borderColor='';
+      }
+    }, 3000);
+    return;
+  }
+  buyList = buyList.filter(x=>String(x.id)!==String(id));
+  saveLocal();
+  renderBuyList();
+  await apiPost({action:'deleteBuyItem', id});
+}
+
+async function clearCheckedBuyItems(btn){
+  const checkedItems = buyList.filter(b=>b.checked);
+  if(!checkedItems.length){ showMsg('buylist-msg','"কেনা হয়েছে" মার্ক করা কোনো আইটেম নেই','error'); return; }
+  if(btn && btn.dataset.confirm !== 'yes'){
+    btn.dataset.confirm = 'yes';
+    btn.textContent = `নিশ্চিত? (${checkedItems.length}টা মুছে যাবে)`;
+    btn.style.background = '#c62828';
+    btn.style.color = '#fff';
+    btn.style.borderColor = '#c62828';
+    clearTimeout(btn._resetTimer);
+    btn._resetTimer = setTimeout(()=>{
+      if(btn.dataset.confirm==='yes'){
+        btn.dataset.confirm='';
+        btn.textContent='✓ কেনা হওয়া সব মুছে ফেলো';
+        btn.style.background=''; btn.style.color=''; btn.style.borderColor='';
+      }
+    }, 3000);
+    return;
+  }
+  buyList = buyList.filter(b=>!b.checked);
+  saveLocal();
+  renderBuyList();
+  for(const item of checkedItems){ await apiPost({action:'deleteBuyItem', id:item.id}); }
+}
+
+
 
 document.addEventListener('click',function(e){
   if(e.target.classList.contains('del-prod'))    deleteProduct(e.target.getAttribute('data-id'));
