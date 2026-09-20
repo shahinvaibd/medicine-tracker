@@ -58,6 +58,8 @@ td{padding:7px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
 .remove-item{position:absolute;top:8px;right:8px;background:none;border:none;color:#aaa;font-size:18px;cursor:pointer;line-height:1}
 .filter-btn{padding:6px 14px;font-size:13px;border:1px solid #ddd;border-radius:20px;background:#fff;color:#555;cursor:pointer}
 .filter-btn.active{background:#1565c0;color:#fff;border-color:#1565c0}
+.reason-btn{padding:6px 10px;font-size:12px;border:1px solid #ddd;border-radius:20px;background:#fff;color:#555;cursor:pointer}
+.reason-btn.active{background:#1565c0;color:#fff;border-color:#1565c0}
 .day-header{display:flex;justify-content:space-between;font-size:13px;font-weight:600;padding:8px 10px;background:#f5f5f5;border-radius:6px;margin-bottom:4px}
 .day-group{margin-bottom:14px}
 .day-row{font-size:12px;padding:5px 10px;color:#555;border-bottom:1px solid #f0f0f0}
@@ -146,6 +148,7 @@ td{padding:7px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
     <div class="card-body collapsed">
       <div id="buylist-msg" class="msg"></div>
       <button class="sm" style="width:100%;background:#e3f2fd;color:#1565c0;border-color:#90caf9;padding:9px;margin-bottom:10px" onclick="generateBuyListFromStock()">🔄 কম/শেষ স্টক থেকে তালিকা তৈরি করো</button>
+      <button class="sm" style="width:100%;background:#fff3e0;color:#e65100;border-color:#ffcc80;padding:9px;margin-bottom:10px" onclick="generateBuyListFromWanted()">📝 চাহিদার তালিকা থেকেও যোগ করো</button>
       <input id="buy-product" placeholder="প্রোডাক্টের নাম (হাতে যোগ করতে)">
       <div class="row c2">
         <input id="buy-qty" placeholder="পরিমাণ (ঐচ্ছিক)">
@@ -157,7 +160,7 @@ td{padding:7px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
     </div>
   </div>
   <div class="card">
-    <h3 class="toggle-header" onclick="toggleCard(this)"><span>📝 চাহিদার তালিকা (স্টকে নেই) <span id="wanted-count-badge" style="font-size:11px;color:#c62828;font-weight:600"></span></span><span class="chev">▸</span></h3>
+    <h3 class="toggle-header" onclick="toggleCard(this)"><span>📝 চাহিদার তালিকা (কাস্টমার যা চেয়েছে) <span id="wanted-count-badge" style="font-size:11px;color:#c62828;font-weight:600"></span></span><span class="chev">▸</span></h3>
     <div class="card-body collapsed">
       <div id="wanted-msg" class="msg"></div>
       <input id="w-product" placeholder="প্রোডাক্টের নাম (যা চেয়েছে)">
@@ -165,9 +168,21 @@ td{padding:7px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
         <input id="w-customer" placeholder="কোন ফার্মেসি/কাস্টমার (ঐচ্ছিক)">
         <input id="w-qty" placeholder="পরিমাণ (ঐচ্ছিক)">
       </div>
+      <div style="font-size:12px;color:#888;margin-bottom:6px">কারণ বেছে নাও:</div>
+      <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+        <button class="reason-btn active" onclick="setWantedReason(this,'স্টকে নেই')">❌ স্টকে নেই</button>
+        <button class="reason-btn" onclick="setWantedReason(this,'বাসায় আছে, সাথে নেই')">🏠 বাসায় আছে</button>
+        <button class="reason-btn" onclick="setWantedReason(this,'অগ্রিম অর্ডার')">📅 অগ্রিম অর্ডার</button>
+      </div>
+      <input type="hidden" id="w-reason" value="স্টকে নেই">
       <input id="w-note" placeholder="নোট (ঐচ্ছিক)">
       <button class="primary" onclick="addWantedItem()">তালিকায় যোগ করো</button>
-      <div id="wanted-list" style="margin-top:10px"></div>
+      <div style="display:flex;gap:8px;margin:12px 0 4px;flex-wrap:wrap">
+        <button class="filter-btn active" id="w-filter-pending" onclick="setWantedFilter('pending',this)">⏳ বাকি আছে</button>
+        <button class="filter-btn" id="w-filter-home" onclick="setWantedFilter('home',this)">🏠 বাসায় আছে</button>
+        <button class="filter-btn" id="w-filter-all" onclick="setWantedFilter('all',this)">সব</button>
+      </div>
+      <div id="wanted-list" style="margin-top:6px"></div>
     </div>
   </div>
 </div>
@@ -214,6 +229,7 @@ td{padding:7px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
       <input type="hidden" id="s-customer" value="">
     </div>
     <input id="s-buyer" placeholder="অথবা নতুন নাম লিখো">
+    <div id="sale-prev-due" style="display:none;background:#fff3e0;border:1px solid #ffcc80;border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:13px;color:#e65100;font-weight:600"></div>
     <div id="sale-items"></div>
     <button class="sm add-row" onclick="addSaleRow()">➕ আরেকটি প্রোডাক্ট যোগ করো</button>
     <div class="total-bar" id="sale-total" style="display:none">
@@ -395,6 +411,7 @@ td{padding:7px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
     </div>
     <div id="bill-paid-row" style="display:none;background:#f9f9f9;border-radius:8px;padding:8px 12px;margin-bottom:12px"></div>
     <div style="text-align:center;font-size:12px;color:#888;margin-bottom:16px">ধন্যবাদ আপনার ক্রয়ের জন্য</div>
+    <button class="primary" id="bill-pay-all-btn" onclick="payAllFromBill()" style="display:none;background:#2e7d32;margin-bottom:8px">💵 সর্বমোট বাকি পরিশোধ এন্ট্রি করো</button>
     <button class="primary green" onclick="shareBillWhatsApp()" style="margin-bottom:8px">📱 WhatsApp-এ পাঠাও</button>
     <button class="primary" onclick="closeBill()">✕ বন্ধ করো</button>
   </div>
@@ -641,6 +658,14 @@ function showMsg(id,text,type){
   setTimeout(()=>{el.className='msg';el.textContent=''},3500);
 }
 function fmt(n){ const r=Math.round(n); return (r<0?'-':'')+'৳'+Math.abs(r).toLocaleString('en-IN'); }
+
+// একজন কাস্টমারের সব বিক্রয় মিলিয়ে মোট কত বাকি আছে — বিল, বিক্রয় ফর্ম ও
+// WhatsApp মেসেজ সব জায়গাতেই এই একটাই হিসাব ব্যবহার হয়, তাই কোথাও গরমিল হবে না
+function getCustomerTotalDue(custId){
+  if(!custId) return 0;
+  return sales.filter(x=>String(x.buyerId)===String(custId))
+    .reduce((a,x)=>a+Number(x.dueAmount||0),0);
+}
 
 async function manualSync(){
   const btn = document.getElementById('manual-sync-btn');
@@ -918,14 +943,42 @@ async function deleteProduct(id){
   renderStock();
 }
 
-// ---- চাহিদার তালিকা (WANTED LIST) — মার্কেটিং-এ যা চাওয়া হয়েছে কিন্তু স্টকে নেই ----
+// ---- চাহিদার তালিকা (WANTED LIST) — কাস্টমার যা চেয়েছে কিন্তু তখন দেওয়া যায়নি ----
+// তিন ধরনের কারণ আলাদা করে রাখা যায়:
+//   "স্টকে নেই"            → কোম্পানি/বাজার থেকে আনতে হবে
+//   "বাসায় আছে, সাথে নেই"  → কিনতে হবে না, শুধু পরের বার সাথে নিয়ে যেতে হবে
+//   "অগ্রিম অর্ডার"         → ভবিষ্যতের জন্য বলে রেখেছে
+let currentWantedFilter = 'pending';
+
+function setWantedReason(btn, reason){
+  document.getElementById('w-reason').value = reason;
+  document.querySelectorAll('.reason-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function setWantedFilter(f, btn){
+  currentWantedFilter = f;
+  ['w-filter-pending','w-filter-home','w-filter-all'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.classList.remove('active');
+  });
+  btn.classList.add('active');
+  renderWantedItems();
+}
+
+function wantedReasonStyle(reason){
+  if(reason==='বাসায় আছে, সাথে নেই') return {color:'#e65100', icon:'🏠'};
+  if(reason==='অগ্রিম অর্ডার')        return {color:'#1565c0', icon:'📅'};
+  return {color:'#c62828', icon:'❌'};
+}
+
 async function addWantedItem(){
   const productName = document.getElementById('w-product').value.trim();
   const customerName = document.getElementById('w-customer').value.trim();
   const qty = document.getElementById('w-qty').value.trim();
+  const reason = document.getElementById('w-reason').value || 'স্টকে নেই';
   const note = document.getElementById('w-note').value.trim();
   if(!productName){ showMsg('wanted-msg','প্রোডাক্টের নাম লিখো','error'); return; }
-  const item = {id:Date.now(), date:new Date().toISOString(), productName, customerName, qty, note, status:'pending'};
+  const item = {id:Date.now(), date:new Date().toISOString(), productName, customerName, qty, reason, note, status:'pending'};
   wantedItems.push(item);
   saveLocal();
   showMsg('wanted-msg', 'তালিকায় যোগ হয়েছে ✓', 'success');
@@ -942,19 +995,30 @@ function renderWantedItems(){
   const pending = wantedItems.filter(w=>w.status!=='done');
   if(badge) badge.textContent = pending.length ? `(${pending.length}টি বাকি)` : '';
   if(!wantedItems.length){ el.innerHTML='<div class="empty">তালিকা খালি — মার্কেটিং-এ কোনো প্রোডাক্ট চাইলে এখানে টুকে রাখুন</div>'; return; }
+
+  let list = wantedItems;
+  if(currentWantedFilter==='pending') list = pending;
+  if(currentWantedFilter==='home')    list = wantedItems.filter(w=>w.status!=='done' && w.reason==='বাসায় আছে, সাথে নেই');
+  if(!list.length){ el.innerHTML='<div class="empty">এই ধরনের কোনো চাহিদা নেই 👍</div>'; return; }
+
   // বাকি (pending) থাকা আইটেমগুলো আগে, পাওয়া গেছে এমনগুলো নিচে; একই গ্রুপের মধ্যে নতুনগুলো আগে
-  const sorted = [...wantedItems].sort((a,b)=> (a.status==='done')-(b.status==='done') || new Date(b.date)-new Date(a.date));
-  el.innerHTML = sorted.map(w=>`
+  const sorted = [...list].sort((a,b)=> (a.status==='done')-(b.status==='done') || new Date(b.date)-new Date(a.date));
+  el.innerHTML = sorted.map(w=>{
+    const rs = wantedReasonStyle(w.reason);
+    const days = Math.floor((Date.now()-new Date(w.date))/(1000*60*60*24));
+    return `
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid #f5f5f5;${w.status==='done'?'opacity:0.5':''}">
       <div style="flex:1;min-width:0">
         <div style="font-weight:600;font-size:13px;${w.status==='done'?'text-decoration:line-through':''}">${w.productName}${w.qty?' — '+w.qty:''}</div>
-        <div style="font-size:11px;color:#888">${w.customerName?'🏪 '+w.customerName+' • ':''}${new Date(w.date).toLocaleDateString('bn-BD')}${w.note?' • '+w.note:''}</div>
+        ${w.reason?`<div style="font-size:11px;color:${rs.color};font-weight:600">${rs.icon} ${w.reason}</div>`:''}
+        <div style="font-size:11px;color:#888">${w.customerName?'🏪 '+w.customerName+' • ':''}${new Date(w.date).toLocaleDateString('bn-BD')}${!w.status||w.status!=='done'?(days>0?' • '+days+' দিন আগে':''):''}${w.note?' • '+w.note:''}</div>
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0">
-        ${w.status!=='done'?`<button class="sm" style="background:#e8f5e9;color:#2e7d32;border-color:#a5d6a7" onclick="markWantedDone('${w.id}')">✓ পাওয়া গেছে</button>`:''}
+        ${w.status!=='done'?`<button class="sm" style="background:#e8f5e9;color:#2e7d32;border-color:#a5d6a7" onclick="markWantedDone('${w.id}')">✓ দেওয়া হয়েছে</button>`:''}
         <button class="sm danger" onclick="deleteWantedItem('${w.id}', this)">✕</button>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 async function markWantedDone(id){
@@ -1008,6 +1072,29 @@ function generateBuyListFromStock(){
   saveLocal();
   renderBuyList();
   showMsg('buylist-msg', addedCount ? `${addedCount}টা প্রোডাক্ট তালিকায় যোগ হয়েছে ✓` : 'সব প্রোডাক্টই ইতিমধ্যে তালিকায় আছে', 'success');
+}
+
+// চাহিদার তালিকা থেকে যেগুলো সত্যিই কিনতে হবে (স্টকে নেই / অগ্রিম অর্ডার) সেগুলো
+// কেনাকাটার তালিকায় নিয়ে আসে — "বাসায় আছে" ধরনের গুলো বাদ, কারণ সেগুলো কিনতে হবে না
+function generateBuyListFromWanted(){
+  const needBuy = wantedItems.filter(w=>w.status!=='done' && w.reason!=='বাসায় আছে, সাথে নেই');
+  if(!needBuy.length){ showMsg('buylist-msg','চাহিদার তালিকায় কেনার মতো কিছু নেই ✓','success'); return; }
+  let addedCount = 0;
+  const idBase = Date.now();
+  needBuy.forEach((w,i)=>{
+    const exists = buyList.find(b=>!b.checked && b.productName.toLowerCase()===w.productName.toLowerCase());
+    if(exists) return;
+    const noteParts = [];
+    if(w.customerName) noteParts.push('চেয়েছে: '+w.customerName);
+    if(w.note) noteParts.push(w.note);
+    const item = {id:idBase+i, productName:w.productName, qty:w.qty||'', note:noteParts.join(' • '), checked:false, date:new Date().toISOString()};
+    buyList.push(item);
+    addedCount++;
+    apiPost({action:'saveBuyItem', item});
+  });
+  saveLocal();
+  renderBuyList();
+  showMsg('buylist-msg', addedCount ? `${addedCount}টা চাহিদা কেনাকাটার তালিকায় যোগ হয়েছে ✓` : 'সবগুলোই ইতিমধ্যে তালিকায় আছে', 'success');
 }
 
 async function addBuyItem(){
@@ -1210,10 +1297,12 @@ async function recordPayment(){
       remaining -= reduce;
     }
   }
+  saveLocal();
   await apiPost({action:'addPayment', payment});
   showMsg('customer-msg', fmt(amount)+' টাকা পরিশোধ এন্ট্রি হয়েছে ✓','success');
   closePayDue();
-  renderCustomers();
+  // পরিশোধের পর সব জায়গার বাকির হিসাব সাথে সাথে আপডেট করো
+  renderCustomers(); renderTodaySales(); updateSalePrevDue();
 }
 
 // ---- EDIT SALE (নগদ/বাকি সংশোধন) ----
@@ -1248,7 +1337,7 @@ async function saveEditSale(){
   saveLocal();
   const ok = await apiPost({action:'updateSalePayment', data:{id, paidAmount, dueAmount}});
   showMsg('edit-sale-msg', ok ? 'সংশোধন সংরক্ষিত হয়েছে ✓' : 'সার্ভারে পাঠাতে সমস্যা হয়েছে, ইন্টারনেট এলে অটো-সিঙ্ক হবে', ok?'success':'error');
-  renderTodaySales(); renderCustomers();
+  renderTodaySales(); renderCustomers(); updateSalePrevDue();
   setTimeout(closeEditSale, 900);
 }
 
@@ -1346,12 +1435,16 @@ function renderCustomerDDList(list){
         </div>`;
     }
   }
-  html += sorted.map(c=>`
+  html += sorted.map(c=>{
+    const due = getCustomerTotalDue(c.id);
+    return `
     <div onmousedown="selectCustomer('${c.id}','${c.name.replace(/'/g,"\\'")}') "
       style="padding:10px 12px;cursor:pointer;border-bottom:1px solid #f5f5f5;font-size:13px">
       <div style="font-weight:600">${c.name}</div>
       ${c.phone?`<div style="font-size:11px;color:#888">📞 ${c.phone}</div>`:''}
-    </div>`).join('');
+      ${due>0?`<div style="font-size:11px;color:#c62828;font-weight:600">⚠️ বাকি: ${fmt(due)}</div>`:''}
+    </div>`;
+  }).join('');
   dd.innerHTML = html;
 }
 
@@ -1360,6 +1453,22 @@ function selectCustomer(id, name){
   document.getElementById('s-customer-search').value=name;
   document.getElementById('s-buyer').value='';
   hideCustomerDropdown();
+  updateSalePrevDue();
+}
+
+// বিক্রয় ফর্মে কাস্টমার বাছাই করার সাথে সাথেই তার আগের বাকি কত তা দেখায়,
+// যাতে বিল করার আগেই মনে থাকে এবং টাকা চাইতে ভুল না হয়
+function updateSalePrevDue(){
+  const box = document.getElementById('sale-prev-due');
+  if(!box) return;
+  const custId = document.getElementById('s-customer').value;
+  const due = getCustomerTotalDue(custId);
+  if(custId && due>0){
+    box.style.display='block';
+    box.innerHTML = `⚠️ এই কাস্টমারের আগের বাকি আছে: ${fmt(due)}`;
+  } else {
+    box.style.display='none';
+  }
 }
 
 function onCustomerChange(){}
@@ -1547,6 +1656,7 @@ async function recordSale(){
   document.getElementById('s-due').value='';
   document.getElementById('sale-items').innerHTML='';
   document.getElementById('sale-total').style.display='none';
+  updateSalePrevDue();
   addSaleRow(); renderTodaySales(); updateMetrics();
 }
 
@@ -1599,12 +1709,42 @@ function showBill(saleId){
   let extraInfo='';
   if(discount>0) extraInfo+=`<div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0;color:#e65100"><span>ছাড়</span><strong>-${fmt(discount)}</strong></div>`;
   if(due>0) extraInfo+=`<div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0"><span>নগদ পরিশোধ</span><strong>${fmt(s.paidAmount||0)}</strong></div>
-    <div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0;color:#c62828"><span>বাকি</span><strong>${fmt(due)}</strong></div>`;
+    <div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0;color:#c62828"><span>এই বিলের বাকি</span><strong>${fmt(due)}</strong></div>`;
+
+  // এই কাস্টমারের আগের জমে থাকা বাকি ও সর্বমোট বাকি আলাদা করে দেখাও।
+  // শুধু তালিকা থেকে বাছাই করা কাস্টমারের ক্ষেত্রেই সম্ভব, কারণ হিসাবটা buyerId ধরে হয় —
+  // হাতে টাইপ করা নামের ক্ষেত্রে একই নামের দুইজন থাকলে ভুল হিসাব হয়ে যেতে পারে
+  const payBtn=document.getElementById('bill-pay-all-btn');
+  if(s.buyerId){
+    const overallDue = getCustomerTotalDue(s.buyerId);
+    const previousDue = Math.max(0, overallDue - due);
+    if(previousDue>0){
+      extraInfo+=`<div style="display:flex;justify-content:space-between;font-size:13px;padding:8px 0 4px;border-top:1px dashed #ddd;margin-top:4px;color:#e65100"><span>আগের বাকি</span><strong>${fmt(previousDue)}</strong></div>`;
+    }
+    if(overallDue>0){
+      extraInfo+=`<div style="display:flex;justify-content:space-between;font-size:14px;padding:6px 0;color:#c62828;font-weight:700"><span>সর্বমোট বাকি</span><strong>${fmt(overallDue)}</strong></div>`;
+      payBtn.style.display='block';
+      window.billOverallDue=overallDue;
+      window.billCustomerId=s.buyerId;
+      window.billCustomerName=s.buyer;
+    } else { payBtn.style.display='none'; }
+  } else { payBtn.style.display='none'; }
+
   if(extraInfo){ paidRow.style.display='block'; paidRow.innerHTML=extraInfo; }
   else paidRow.style.display='none';
   document.getElementById('bill-modal').classList.add('active');
 }
 function closeBill(){ document.getElementById('bill-modal').classList.remove('active'); }
+
+// বিল থেকে সরাসরি সর্বমোট বাকি (আগের + আজকের সব মিলিয়ে) পরিশোধের ফর্ম খোলে।
+// পুরো অংক আগে থেকেই বসানো থাকে; কাস্টমার কম দিলে শুধু সংখ্যাটা বদলে দিলেই হবে,
+// সবচেয়ে পুরনো বাকি থেকে ক্রমানুসারে (FIFO) কমে যাবে
+function payAllFromBill(){
+  if(!window.billCustomerId) return;
+  closeBill();
+  openPayDue(window.billCustomerId, window.billCustomerName, window.billOverallDue);
+  document.getElementById('pay-amount').value = Math.round(window.billOverallDue);
+}
 
 function shareBillWhatsApp(){
   if(!currentBillSale){return;}
@@ -1621,9 +1761,19 @@ function shareBillWhatsApp(){
     msg += `${i.name} — ${i.qty} ${i.unit} × ${fmt(i.sellPrice)} = ${fmt(i.sellPrice*i.qty)}\n`;
   });
   msg += `\n*মোট বিল: ${fmt(total)}*\n`;
+  if(Number(s.discount||0)>0){
+    msg += `ছাড়: -${fmt(s.discount)}\n`;
+  }
   if(due>0){
     msg += `নগদ পরিশোধ: ${fmt(s.paidAmount||0)}\n`;
-    msg += `বাকি: ${fmt(due)}\n`;
+    msg += `এই বিলের বাকি: ${fmt(due)}\n`;
+  }
+  // আগের জমে থাকা বাকিসহ সর্বমোট হিসাব — তালিকা থেকে বাছাই করা কাস্টমারের ক্ষেত্রেই
+  if(s.buyerId){
+    const overallDue = getCustomerTotalDue(s.buyerId);
+    const previousDue = Math.max(0, overallDue - due);
+    if(previousDue>0) msg += `আগের বাকি: ${fmt(previousDue)}\n`;
+    if(overallDue>0) msg += `\n*সর্বমোট বাকি: ${fmt(overallDue)}*\n`;
   }
   msg += `\nধন্যবাদ আপনার ক্রয়ের জন্য।`;
 
