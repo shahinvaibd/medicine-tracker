@@ -266,6 +266,7 @@ td{padding:7px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
   </div>
   <div class="card">
     <h3>👥 ফার্মেসি তালিকা</h3>
+    <input id="customer-search" placeholder="🔍 ফার্মেসির নাম বা ফোন নম্বর লিখে খোঁজো..." oninput="renderCustomers()" style="margin-bottom:10px">
     <div id="customer-list"></div>
   </div>
 </div>
@@ -369,12 +370,20 @@ td{padding:7px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
     <div id="total-due-summary"></div>
   </div>
   <div class="card">
-    <h3 class="toggle-header" onclick="toggleCard(this)">🏆 সেরা কাস্টমার (মোট কেনা অনুযায়ী) <span class="chev">▸</span></h3>
-    <div class="card-body collapsed"><div id="top-customers"></div></div>
+    <h3 class="toggle-header" onclick="toggleCard(this)">🏆 প্রোডাক্ট র‍্যাঙ্কিং (পাইকারি ক্রয়ের জন্য) <span class="chev">▸</span></h3>
+    <div class="card-body collapsed">
+      <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+        <button class="filter-btn active" id="tp-sort-qty" onclick="setTopProductSort('qty',this)">📦 বিক্রিত পরিমাণ</button>
+        <button class="filter-btn" id="tp-sort-revenue" onclick="setTopProductSort('revenue',this)">💰 আয়</button>
+        <button class="filter-btn" id="tp-sort-profit" onclick="setTopProductSort('profit',this)">📈 লাভ</button>
+      </div>
+      <div id="top-products"></div>
+      <button class="sm" id="tp-show-more-btn" style="width:100%;margin-top:8px;background:#e3f2fd;color:#1565c0;border-color:#90caf9" onclick="toggleTopProductsShowAll()">▼ সব দেখাও</button>
+    </div>
   </div>
   <div class="card">
-    <h3 class="toggle-header" onclick="toggleCard(this)">🏆 সবচেয়ে বেশি বিক্রি (টপ ৫) <span class="chev">▸</span></h3>
-    <div class="card-body collapsed"><div id="top-products"></div></div>
+    <h3 class="toggle-header" onclick="toggleCard(this)">🏆 সেরা কাস্টমার (মোট কেনা অনুযায়ী) <span class="chev">▸</span></h3>
+    <div class="card-body collapsed"><div id="top-customers"></div></div>
   </div>
   <div class="card">
     <h3 class="toggle-header" onclick="toggleCard(this)">📜 বিক্রয় ইতিহাস <span class="chev">▸</span></h3>
@@ -1344,6 +1353,9 @@ async function saveEditSale(){
 function renderCustomers(){
   const el=document.getElementById('customer-list');
   if(!customers.length){el.innerHTML='<div class="empty">এখনো কোনো ফার্মেসি যোগ করা হয়নি</div>';return;}
+  const searchEl = document.getElementById('customer-search');
+  const q = searchEl ? searchEl.value.toLowerCase().trim() : '';
+  const filteredCustomers = q ? customers.filter(c=>c.name.toLowerCase().includes(q)||(c.phone&&String(c.phone).includes(q))) : customers;
   const custSales={};
   sales.forEach(s=>{
     const key=s.buyerId||s.buyer; if(!key)return;
@@ -1353,7 +1365,11 @@ function renderCustomers(){
     custSales[key].due+=Number(s.dueAmount||0);
     if(s.date>custSales[key].lastDate) custSales[key].lastDate=s.date;
   });
-  const sorted=[...customers].sort((a,b)=>(custSales[b.id]?.total||0)-(custSales[a.id]?.total||0));
+  // সার্চ করলে নাম অনুযায়ী বর্ণানুক্রমিক সাজাও (খুঁজে পাওয়া সহজ), না করলে বেশি কেনা কাস্টমার আগে
+  const sorted = q
+    ? [...filteredCustomers].sort((a,b)=>a.name.localeCompare(b.name,'bn'))
+    : [...filteredCustomers].sort((a,b)=>(custSales[b.id]?.total||0)-(custSales[a.id]?.total||0));
+  if(!sorted.length){ el.innerHTML='<div class="empty">কোনো কাস্টমার পাওয়া যায়নি</div>'; return; }
   el.innerHTML=sorted.map(c=>{
     const cs=custSales[c.id]||{total:0,count:0,lastDate:'',due:0};
     const rating=autoRating(cs);
@@ -2153,19 +2169,64 @@ function renderReport(){
   else tc.innerHTML='<table><thead><tr><th>ফার্মেসি</th><th>বারের সংখ্যা</th><th>মোট কেনা</th></tr></thead><tbody>'+
     topC.map(c=>`<tr><td>${c.name}</td><td>${c.count}বার</td><td style="color:#1565c0;font-weight:600">${fmt(c.total)}</td></tr>`).join('')+'</tbody></table>';
 
-  // top products
+  // top products — প্রোডাক্ট অনুযায়ী মোট বিক্রিত পরিমাণ, আয় ও লাভ হিসাব করে
+  // renderTopProducts() ফাংশনে পাঠাও, যাতে সর্ট/সব দেখাও টগল করলে পুরো রিপোর্ট আবার লোড করতে না হয়
   const prodTotals={};
   sales.forEach(s=>s.items.forEach(i=>{
     if(!prodTotals[i.name])prodTotals[i.name]={qty:0,revenue:0,profit:0};
     prodTotals[i.name].qty+=i.qty; prodTotals[i.name].revenue+=i.sellPrice*i.qty; prodTotals[i.name].profit+=(i.sellPrice-i.buyPrice)*i.qty;
   }));
-  const topP=Object.entries(prodTotals).sort((a,b)=>b[1].revenue-a[1].revenue).slice(0,5);
-  const tp=document.getElementById('top-products');
-  if(!topP.length) tp.innerHTML='<div class="empty">এখনো কোনো বিক্রয় নেই</div>';
-  else tp.innerHTML='<table><thead><tr><th>প্রোডাক্ট</th><th>বিক্রিত</th><th>আয়</th><th>লাভ</th></tr></thead><tbody>'+
-    topP.map(([name,d])=>`<tr><td>${name}</td><td>${d.qty}</td><td>${fmt(d.revenue)}</td><td class="profit-text profit-val">${fmt(d.profit)}</td></tr>`).join('')+'</tbody></table>';
+  window.reportProdTotals = prodTotals;
+  renderTopProducts();
 
   renderSalesHistory();
+}
+
+// প্রোডাক্ট র‍্যাঙ্কিং — পাইকারি কেনার সময় কোনটা আগে কিনবেন সেটা ঠিক করতে সাহায্য করে।
+// ডিফল্টে বিক্রিত পরিমাণ অনুযায়ী সাজানো (কারণ বেশি বিক্রি হওয়া প্রোডাক্টই আগে স্টক আউট হয়),
+// চাইলে আয় বা লাভ অনুযায়ীও দেখা যায়। ডিফল্টে টপ ১৫টা, "সব দেখাও" চাপলে পুরো তালিকা।
+let topProductSortBy = 'qty';
+let topProductsShowAll = false;
+const TOP_PRODUCTS_PREVIEW_COUNT = 15;
+
+function setTopProductSort(mode, btn){
+  topProductSortBy = mode;
+  ['tp-sort-qty','tp-sort-revenue','tp-sort-profit'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.classList.remove('active');
+  });
+  btn.classList.add('active');
+  renderTopProducts();
+}
+
+function toggleTopProductsShowAll(){
+  topProductsShowAll = !topProductsShowAll;
+  renderTopProducts();
+}
+
+function renderTopProducts(){
+  const prodTotals = window.reportProdTotals || {};
+  const tp=document.getElementById('top-products');
+  const showMoreBtn=document.getElementById('tp-show-more-btn');
+  if(!tp) return;
+  const entries = Object.entries(prodTotals);
+  if(!entries.length){
+    tp.innerHTML='<div class="empty">এখনো কোনো বিক্রয় নেই</div>';
+    if(showMoreBtn) showMoreBtn.style.display='none';
+    return;
+  }
+  const sortKey = topProductSortBy==='revenue' ? 'revenue' : topProductSortBy==='profit' ? 'profit' : 'qty';
+  const sorted = entries.sort((a,b)=>b[1][sortKey]-a[1][sortKey]);
+  const shown = topProductsShowAll ? sorted : sorted.slice(0, TOP_PRODUCTS_PREVIEW_COUNT);
+  tp.innerHTML = '<table><thead><tr><th>#</th><th>প্রোডাক্ট</th><th style="text-align:center">বিক্রিত</th><th style="text-align:right">আয়</th><th style="text-align:right">লাভ</th></tr></thead><tbody>'+
+    shown.map(([name,d],i)=>`<tr><td style="color:#888">${i+1}</td><td><strong>${name}</strong></td><td style="text-align:center;font-weight:${sortKey==='qty'?'700':'400'}">${d.qty}</td><td style="text-align:right;font-weight:${sortKey==='revenue'?'700':'400'}">${fmt(d.revenue)}</td><td style="text-align:right;font-weight:${sortKey==='profit'?'700':'400'}" class="profit-text profit-val">${fmt(d.profit)}</td></tr>`).join('')+'</tbody></table>';
+  if(showMoreBtn){
+    if(sorted.length>TOP_PRODUCTS_PREVIEW_COUNT){
+      showMoreBtn.style.display='block';
+      showMoreBtn.textContent = topProductsShowAll ? '▲ কম দেখাও' : `▼ সব দেখাও (${sorted.length}টা প্রোডাক্ট)`;
+    } else {
+      showMoreBtn.style.display='none';
+    }
+  }
 }
 
 function renderSalesHistory(){
