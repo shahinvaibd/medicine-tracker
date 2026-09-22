@@ -386,6 +386,13 @@ td{padding:7px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
     <div class="card-body collapsed"><div id="top-customers"></div></div>
   </div>
   <div class="card">
+    <h3 class="toggle-header" onclick="toggleCard(this)">📅 মাসভিত্তিক রিপোর্ট <span class="chev">▸</span></h3>
+    <div class="card-body collapsed">
+      <select id="month-report-select" onchange="renderMonthlyReportBody()" style="margin-bottom:12px"></select>
+      <div id="month-report-body"></div>
+    </div>
+  </div>
+  <div class="card">
     <h3 class="toggle-header" onclick="toggleCard(this)">📜 বিক্রয় ইতিহাস <span class="chev">▸</span></h3>
     <div class="card-body collapsed">
       <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
@@ -2179,7 +2186,111 @@ function renderReport(){
   window.reportProdTotals = prodTotals;
   renderTopProducts();
 
+  renderMonthlyReport();
   renderSalesHistory();
+}
+
+// ---- মাসভিত্তিক রিপোর্ট — কোন মাসে কত বিক্রি হলো, কোন প্রোডাক্ট/কাস্টমার সবচেয়ে
+// বেশি ছিল, আর কোন কাস্টমার সবচেয়ে বেশি বাকি রেখেছে — মাস বেছে নিয়ে দেখা যায় ----
+function getMonthKey(d){
+  const dt=new Date(d);
+  return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0');
+}
+const MONTHS_BN_FULL=['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'];
+function monthLabel(key){
+  const [y,m]=key.split('-');
+  return MONTHS_BN_FULL[parseInt(m)-1]+' '+y;
+}
+function getAvailableMonths(){
+  const set=new Set();
+  sales.forEach(s=>set.add(getMonthKey(s.date)));
+  expenses.forEach(e=>set.add(getMonthKey(e.date)));
+  return [...set].sort().reverse(); // নতুন মাস আগে
+}
+function prevMonthKey(key){
+  const [y,m]=key.split('-').map(Number);
+  const d=new Date(y, m-2, 1); // m হলো ১-ভিত্তিক, তাই m-2 দিলে আগের মাস পাওয়া যায়
+  return getMonthKey(d);
+}
+
+function renderMonthlyReport(){
+  const sel=document.getElementById('month-report-select');
+  if(!sel) return;
+  const months=getAvailableMonths();
+  if(!months.length){
+    sel.innerHTML='<option value="">কোনো ডেটা নেই</option>';
+    document.getElementById('month-report-body').innerHTML='<div class="empty">এখনো কোনো বিক্রয়/খরচ নেই</div>';
+    return;
+  }
+  const prevSelected=sel.value;
+  sel.innerHTML=months.map(m=>`<option value="${m}">${monthLabel(m)}</option>`).join('');
+  const thisMonthKey=getMonthKey(new Date());
+  sel.value = months.includes(prevSelected) ? prevSelected : (months.includes(thisMonthKey) ? thisMonthKey : months[0]);
+  renderMonthlyReportBody();
+}
+
+function renderMonthlyReportBody(){
+  const sel=document.getElementById('month-report-select');
+  const body=document.getElementById('month-report-body');
+  if(!sel || !body) return;
+  const key=sel.value;
+  if(!key){ body.innerHTML=''; return; }
+
+  const monthSales=sales.filter(s=>getMonthKey(s.date)===key);
+  const monthExpenses=expenses.filter(e=>getMonthKey(e.date)===key);
+  const totalSale=monthSales.reduce((a,s)=>a+s.items.reduce((x,i)=>x+i.sellPrice*i.qty,0),0);
+  const totalDiscount=monthSales.reduce((a,s)=>a+Number(s.discount||0),0);
+  const salesProfit=monthSales.reduce((a,s)=>a+s.items.reduce((x,i)=>x+(i.sellPrice-i.buyPrice)*i.qty,0),0) - totalDiscount;
+  const totalExpense=monthExpenses.reduce((a,e)=>a+Number(e.amount),0);
+  const netProfit=salesProfit-totalExpense;
+
+  // আগের মাসের তুলনায় বিক্রয় কত % বাড়লো/কমলো
+  const prevKey=prevMonthKey(key);
+  const prevTotalSale=sales.filter(s=>getMonthKey(s.date)===prevKey)
+    .reduce((a,s)=>a+s.items.reduce((x,i)=>x+i.sellPrice*i.qty,0),0);
+  const changePct = prevTotalSale>0 ? Math.round((totalSale-prevTotalSale)/prevTotalSale*100) : null;
+  const changeHtml = changePct===null ? '' :
+    `<div style="font-size:11px;color:${changePct>=0?'#2e7d32':'#c62828'};margin-top:2px">${changePct>=0?'▲':'▼'} আগের মাস থেকে ${Math.abs(changePct)}%</div>`;
+
+  // প্রোডাক্ট অনুযায়ী
+  const prodTotals={};
+  monthSales.forEach(s=>s.items.forEach(i=>{
+    if(!prodTotals[i.name]) prodTotals[i.name]={qty:0,revenue:0};
+    prodTotals[i.name].qty+=i.qty; prodTotals[i.name].revenue+=i.sellPrice*i.qty;
+  }));
+  const topProds=Object.entries(prodTotals).sort((a,b)=>b[1].qty-a[1].qty).slice(0,8);
+
+  // কাস্টমার অনুযায়ী — মোট কেনা ও এই মাসের বিক্রয় থেকে বর্তমানে যা বাকি আছে
+  const custTotals={};
+  monthSales.forEach(s=>{
+    const ck=s.buyerId||s.buyer; if(!ck) return;
+    if(!custTotals[ck]) custTotals[ck]={name:s.buyer, total:0, due:0};
+    custTotals[ck].total+=s.items.reduce((a,i)=>a+i.sellPrice*i.qty,0);
+    custTotals[ck].due+=Number(s.dueAmount||0);
+  });
+  const topCust=Object.values(custTotals).sort((a,b)=>b.total-a.total).slice(0,5);
+  const topDueCust=Object.values(custTotals).filter(c=>c.due>0).sort((a,b)=>b.due-a.due).slice(0,5);
+
+  body.innerHTML=`
+    <div class="grid2" style="margin-bottom:14px">
+      <div class="metric"><div class="metric-label">মোট বিক্রয়</div><div class="metric-val">${fmt(totalSale)}</div>${changeHtml}</div>
+      <div class="metric"><div class="metric-label">নেট লাভ (খরচের পর)</div><div class="metric-val profit-val ${netProfit<0?'red':'green'}">${fmt(netProfit)}</div></div>
+      <div class="metric"><div class="metric-label">মোট ছাড়</div><div class="metric-val">${fmt(totalDiscount)}</div></div>
+      <div class="metric"><div class="metric-label">মোট খরচ</div><div class="metric-val red">${fmt(totalExpense)}</div></div>
+    </div>
+    <div style="font-size:13px;font-weight:600;color:#444;margin-bottom:8px">🏆 এই মাসে সবচেয়ে বেশি বিক্রি হওয়া প্রোডাক্ট</div>
+    ${!topProds.length ? '<div class="empty">কোনো বিক্রয় নেই</div>' :
+      '<table style="margin-bottom:14px"><thead><tr><th>প্রোডাক্ট</th><th style="text-align:center">বিক্রিত</th><th style="text-align:right">আয়</th></tr></thead><tbody>'+
+      topProds.map(([name,d])=>`<tr><td>${name}</td><td style="text-align:center;font-weight:600">${d.qty}</td><td style="text-align:right">${fmt(d.revenue)}</td></tr>`).join('')+'</tbody></table>'}
+    <div style="font-size:13px;font-weight:600;color:#444;margin-bottom:8px">🏪 এই মাসে সেরা কাস্টমার (মোট কেনা অনুযায়ী)</div>
+    ${!topCust.length ? '<div class="empty">কোনো বিক্রয় নেই</div>' :
+      '<table style="margin-bottom:14px"><thead><tr><th>ফার্মেসি</th><th style="text-align:right">মোট কেনা</th></tr></thead><tbody>'+
+      topCust.map(c=>`<tr><td>${c.name}</td><td style="text-align:right;color:#1565c0;font-weight:600">${fmt(c.total)}</td></tr>`).join('')+'</tbody></table>'}
+    <div style="font-size:13px;font-weight:600;color:#c62828;margin-bottom:8px">⚠️ এই মাসের বিক্রয় থেকে বর্তমানে যা বাকি আছে</div>
+    ${!topDueCust.length ? '<div class="empty">কোনো বাকি নেই 👍</div>' :
+      '<table><thead><tr><th>ফার্মেসি</th><th style="text-align:right">বাকি</th></tr></thead><tbody>'+
+      topDueCust.map(c=>`<tr><td>${c.name}</td><td style="text-align:right;color:#c62828;font-weight:600">${fmt(c.due)}</td></tr>`).join('')+'</tbody></table>'}
+  `;
 }
 
 // প্রোডাক্ট র‍্যাঙ্কিং — পাইকারি কেনার সময় কোনটা আগে কিনবেন সেটা ঠিক করতে সাহায্য করে।
