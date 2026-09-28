@@ -482,6 +482,25 @@ function saveQueue(){ localStorage.setItem('offlineQueue', JSON.stringify(offlin
 // যাতে সব সেভ শেষ না হওয়া পর্যন্ত পেজ বন্ধ/রিফ্রেশ করলে সতর্ক করা যায়
 let pendingSaves = 0;
 
+// দুর্বল নেটে fetch অনির্দিষ্টকাল ঝুলে থাকতে পারে — ২৫ সেকেন্ড পর বাতিল করে কিউতে রাখা হয়।
+// (সার্ভারে কাজ হয়ে গেলেও সমস্যা নেই: সার্ভার এখন প্রতিটা অনুরোধ id দিয়ে চিনে ডুপ্লিকেট এড়ায়)
+function fetchPost(body){
+  const ctrl = new AbortController();
+  const t = setTimeout(()=>ctrl.abort(), 25000);
+  return fetch(API, { method:'POST', body: JSON.stringify(body), signal: ctrl.signal })
+    .finally(()=>clearTimeout(t));
+}
+
+// সার্ভার থেকে ডেটা টানার পর, যে বিক্রয়গুলো এখনো কিউতে পেন্ডিং (সার্ভারে পৌঁছায়নি) সেগুলো
+// লোকাল তালিকায় ফিরিয়ে দেয় — নাহলে সার্ভারের ডেটা দিয়ে ওভাররাইট হয়ে বিক্রয়টা উধাও দেখাত
+function applyPendingToState(){
+  offlineQueue.forEach(b=>{
+    if(b && b.action==='addSale' && b.sale && !sales.some(x=>String(x.id)===String(b.sale.id))){
+      sales.push(b.sale);
+    }
+  });
+}
+
 // ---- POST দিয়ে সেভ করা হয় (GET-এর URL length limit ও CORS সমস্যা এড়াতে) ----
 async function apiPost(body){
   saveLocal();
@@ -490,7 +509,7 @@ async function apiPost(body){
   }
   pendingSaves++;
   try{
-    const res = await fetch(API, { method:'POST', body: JSON.stringify(body) });
+    const res = await fetchPost(body);
     const data = await res.json();
     if(data && data.error){ throw new Error(data.error); }
     return true;
@@ -512,7 +531,7 @@ async function apiPostRaw(body){
   }
   pendingSaves++;
   try{
-    const res = await fetch(API, { method:'POST', body: JSON.stringify(body) });
+    const res = await fetchPost(body);
     const data = await res.json();
     if(data && data.error){ throw new Error(data.error); }
     return data;
@@ -530,7 +549,7 @@ async function syncQueue(){
   const queue=[...offlineQueue]; offlineQueue=[]; saveQueue();
   for(const body of queue){
     try{
-      const res = await fetch(API, { method:'POST', body: JSON.stringify(body) });
+      const res = await fetchPost(body);
       const data = await res.json();
       if(data && data.error){ throw new Error(data.error); }
     }catch(e){ offlineQueue.push(body); }
@@ -601,7 +620,7 @@ async function apiGet(){
     targets   = data.targets   || [];
     closedDays = data.closedDays || [];
     wantedItems = data.wantedItems || [];
-    buyList = data.buyList || [];
+    buyList = data.buyList || []; applyPendingToState();
     saveLocal();
   }catch(e){ loadLocal(); }
 }
@@ -643,7 +662,7 @@ async function init(){
       targets   = data.targets   || targets;
       closedDays = data.closedDays || closedDays;
       wantedItems = data.wantedItems || wantedItems;
-      buyList = data.buyList || buyList;
+      buyList = data.buyList || buyList; applyPendingToState();
       saveLocal();
       renderStock(); renderCustomerDropdown();
       const activeTab = document.querySelector('.tab.active');
@@ -701,7 +720,7 @@ async function manualSync(){
     targets   = data.targets   || targets;
     closedDays = data.closedDays || closedDays;
     wantedItems = data.wantedItems || wantedItems;
-    buyList = data.buyList || buyList;
+    buyList = data.buyList || buyList; applyPendingToState();
     saveLocal();
     renderStock(); renderCustomerDropdown();
     const activeTab = document.querySelector('.tab.active');
@@ -851,7 +870,7 @@ async function saveRestock(){
   showMsg('restock-msg', 'সংরক্ষণ হচ্ছে...', 'success');
   // সার্ভারকে "এত পরিমাণ ও এই দামে যোগ করো" বলা হচ্ছে — সার্ভার নিজের বর্তমান প্রকৃত
   // qty/buyPrice থেকেই গড় হিসাব করবে, লোকাল সংখ্যা পুরনো/স্টেল হলেও কোনো সমস্যা হবে না
-  const res = await apiPostRaw({action:'addStock', data:{id:p.id, qty:addQty, buyPrice:newBuy}});
+  const res = await apiPostRaw({action:'addStock', data:{id:p.id, qty:addQty, buyPrice:newBuy, opId:Date.now()}});
   if(res && res.success){
     p.qty = res.qty; p.buyPrice = res.buyPrice; saveLocal();
     showMsg('restock-msg', 'রিস্টক সংরক্ষিত হয়েছে ✓', 'success');
