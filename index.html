@@ -2349,6 +2349,25 @@ function renderMonthlyReportBody(){
   const netProfit=salesProfit-totalExpense; // ব্যবসার নিজের লাভ (উত্তোলন বাদে) — ব্যবসা কতটা ভালো চলছে তার সূচক
   const netProfitAfterWithdrawal=netProfit-monthWithdrawal; // সংসার খরচের জন্য তোলার পর হাতে/মূলধনে যা রইলো
 
+  // এই মাসে কত দিন কাজ করেছেন আর কত দিন করেননি — সাপ্তাহিক হিসাবের একই নিয়মে (getDayStatus)
+  // আজকের দিন শেষ না হলে (এন্ট্রি না থাকলে), ভবিষ্যতের দিন এবং অ্যাপ শুরুর আগের দিন গোনা হয় না
+  const [yy,mm]=key.split('-').map(Number);
+  const daysInMonth=new Date(yy,mm,0).getDate();
+  const todayStrM=dateToStr(new Date());
+  const actSetM=getActivityDateSet();
+  const firstActM=[...actSetM].sort()[0]||'';
+  let workedDays=0, closedDaysCount=0, autoClosedCount=0, todayPending=false;
+  const closedDayList=[];
+  for(let d=1; d<=daysInMonth; d++){
+    const dStr=`${yy}-${String(mm).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const st=getDayStatus(dStr, actSetM, firstActM, todayStrM);
+    if(st.state==='open') workedDays++;
+    else if(st.state==='closed'){ closedDaysCount++; closedDayList.push(d); if(st.source==='auto') autoClosedCount++; }
+    else if(st.state==='today') todayPending=true;
+  }
+  const avgSalePerWorkDay = workedDays>0 ? totalSale/workedDays : 0;
+  const avgProfitPerWorkDay = workedDays>0 ? netProfit/workedDays : 0;
+
   // আগের মাসের তুলনায় বিক্রয় কত % বাড়লো/কমলো
   const prevKey=prevMonthKey(key);
   const prevTotalSale=sales.filter(s=>getMonthKey(s.date)===prevKey)
@@ -2384,7 +2403,13 @@ function renderMonthlyReportBody(){
       <div class="metric"><div class="metric-label">ব্যবসার খরচ</div><div class="metric-val red">${fmt(totalExpense)}</div></div>
       <div class="metric"><div class="metric-label">উত্তোলন (সংসার খরচ)</div><div class="metric-val" style="color:#e65100">${fmt(monthWithdrawal)}</div></div>
       <div class="metric"><div class="metric-label">প্রকৃত নিট লাভ (উত্তোলনের পর)</div><div class="metric-val profit-val ${netProfitAfterWithdrawal<0?'red':'green'}">${fmt(netProfitAfterWithdrawal)}</div></div>
+      <div class="metric"><div class="metric-label">কাজ করেছি</div><div class="metric-val green">${workedDays} দিন</div></div>
+      <div class="metric"><div class="metric-label">কাজ করিনি (বন্ধ)</div><div class="metric-val red">${closedDaysCount} দিন</div></div>
+      <div class="metric"><div class="metric-label">গড় দৈনিক বিক্রয় (কাজের দিনে)</div><div class="metric-val">${fmt(avgSalePerWorkDay)}</div></div>
+      <div class="metric"><div class="metric-label">গড় দৈনিক নিট লাভ (কাজের দিনে)</div><div class="metric-val profit-val ${avgProfitPerWorkDay<0?'red':'green'}">${fmt(avgProfitPerWorkDay)}</div></div>
     </div>
+    ${closedDayList.length ? `<div style="font-size:12px;color:#c62828;background:#fff8f8;border:1px solid #ffcdd2;border-radius:8px;padding:8px 10px;margin-bottom:14px">❌ বন্ধ ছিল: ${closedDayList.join(', ')} তারিখ${autoClosedCount?` (এর মধ্যে ${autoClosedCount}টা অটো ধরা — ভুল হলে হিসাব ট্যাবের সাপ্তাহিক কার্ড থেকে ঠিক করা যায়)`:''}</div>` : ''}
+    ${todayPending ? `<div style="font-size:11px;color:#888;margin:-8px 0 14px">⏳ আজকের দিন গোনা হয়নি (এখনো এন্ট্রি নেই)</div>` : ''}
     ${netProfitAfterWithdrawal<0 ? `<div style="background:#ffebee;border:1px solid #ef9a9a;border-radius:8px;padding:10px;margin-bottom:14px;font-size:13px;color:#c62828;font-weight:600">⚠️ এই মাসে সংসার খরচের জন্য উত্তোলন ব্যবসার লাভের চেয়ে বেশি হয়ে গেছে (${fmt(netProfitAfterWithdrawal)}) — মূলধনে হাত পড়েছে</div>` : ''}
     <div style="font-size:13px;font-weight:600;color:#444;margin-bottom:8px">🏆 এই মাসে সবচেয়ে বেশি বিক্রি হওয়া প্রোডাক্ট</div>
     ${!topProds.length ? '<div class="empty">কোনো বিক্রয় নেই</div>' :
