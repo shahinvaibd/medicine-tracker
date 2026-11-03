@@ -10,7 +10,7 @@ body{font-family:sans-serif;background:#f5f5f5;color:#1a1a1a;font-size:15px}
 header{background:#1565c0;color:#fff;padding:8px 12px;display:flex;align-items:center;gap:8px;position:sticky;top:0;z-index:100}
 header h1{font-size:14px;font-weight:600}
 .tab-bar{display:flex;background:#fff;border-top:1px solid #e0e0e0;position:fixed;bottom:0;left:0;right:0;z-index:99}
-.tab{flex:1;min-width:0;padding:8px 4px 6px;text-align:center;font-size:20px;color:#999;border:none;background:none;cursor:pointer;border-top:3px solid transparent}
+.tab{position:relative;flex:1;min-width:0;padding:8px 4px 6px;text-align:center;font-size:20px;color:#999;border:none;background:none;cursor:pointer;border-top:3px solid transparent}
 .tab.active{color:#1565c0;border-top-color:#1565c0}
 .section{display:none;padding:12px;padding-bottom:70px}
 .section.active{display:block}
@@ -83,6 +83,15 @@ td{padding:7px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
 .bill-table th{background:#f5f5f5;padding:6px;font-size:12px;text-align:left}
 .bill-table td{padding:6px;font-size:12px;border-bottom:1px solid #f0f0f0}
 .bill-total{background:#1565c0;color:#fff;padding:10px;border-radius:8px;display:flex;justify-content:space-between;font-size:14px;font-weight:700;margin-bottom:10px}
+.tab-badge{position:absolute;top:2px;right:calc(50% - 22px);background:#c62828;color:#fff;font-size:10px;font-weight:700;min-width:16px;height:16px;line-height:16px;border-radius:8px;padding:0 4px}
+.order-card{background:#fff;border:1px solid #e0e0e0;border-left:4px solid #1565c0;border-radius:10px;padding:12px;margin-bottom:10px}
+.order-card.st-new{border-left-color:#e65100;background:#fffaf5}
+.order-card.st-done{border-left-color:#2e7d32;opacity:.8}
+.order-card.st-cancel{border-left-color:#9e9e9e;opacity:.6}
+.chip{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.chip.new{background:#fff3e0;color:#e65100}.chip.conf{background:#e3f2fd;color:#1565c0}.chip.done{background:#e8f5e9;color:#2e7d32}.chip.cancel{background:#eee;color:#757575}
+.ord-item{display:flex;justify-content:space-between;gap:8px;font-size:13px;padding:4px 0;border-bottom:1px dashed #eee}
+.ord-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
 </style>
 </head>
 <body class="profit-hidden">
@@ -102,6 +111,7 @@ td{padding:7px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
 <div class="tab-bar">
   <button class="tab active" data-tab="stock" title="স্টক">📦</button>
   <button class="tab" data-tab="sale" title="বিক্রয়">🛒</button>
+  <button class="tab" data-tab="orders" title="অর্ডার">📥<span id="orders-badge" class="tab-badge" style="display:none">0</span></button>
   <button class="tab" data-tab="customer" title="কাস্টমার">👥</button>
   <button class="tab" data-tab="hisab" title="হিসাব">💰</button>
   <button class="tab" data-tab="report" title="রিপোর্ট">📊</button>
@@ -229,6 +239,7 @@ td{padding:7px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
       <input type="hidden" id="s-customer" value="">
     </div>
     <input id="s-buyer" placeholder="অথবা নতুন নাম লিখো">
+    <div id="order-banner" style="display:none;background:#e3f2fd;border:1px solid #90caf9;border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:13px;color:#1565c0"></div>
     <div id="sale-prev-due" style="display:none;background:#fff3e0;border:1px solid #ffcc80;border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:13px;color:#e65100;font-weight:600"></div>
     <div id="sale-items"></div>
     <button class="sm add-row" onclick="addSaleRow()">➕ আরেকটি প্রোডাক্ট যোগ করো</button>
@@ -245,6 +256,30 @@ td{padding:7px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
   <div class="card">
     <h3>📅 আজকের বিক্রয়</h3>
     <div id="today-sales"></div>
+  </div>
+</div>
+
+<!-- ORDERS TAB -->
+<div id="tab-orders" class="section">
+  <div class="card">
+    <h3>🔗 কাস্টমারের অর্ডার লিংক</h3>
+    <div style="font-size:12px;color:#888;margin-bottom:8px">এই লিংক কাস্টমারকে পাঠান। তারা প্রোডাক্ট বেছে নিজেরাই অর্ডার দিতে পারবে — শুধু প্রোডাক্টের নাম দেখা যায়, দাম/স্টক/বাকি কিছুই না।</div>
+    <div id="order-link-area"></div>
+  </div>
+  <div class="card">
+    <h3>📥 অর্ডারসমূহ</h3>
+    <div id="orders-msg" class="msg"></div>
+    <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+      <button class="filter-btn active" id="of-new" onclick="setOrderFilter('new',this)">🆕 নতুন</button>
+      <button class="filter-btn" id="of-conf" onclick="setOrderFilter('conf',this)">✔ কনফার্মড</button>
+      <button class="filter-btn" id="of-done" onclick="setOrderFilter('done',this)">🚚 ডেলিভারি হয়েছে</button>
+      <button class="filter-btn" id="of-all" onclick="setOrderFilter('all',this)">সব</button>
+    </div>
+    <div id="orders-list"></div>
+  </div>
+  <div class="card">
+    <h3 class="toggle-header" onclick="toggleCard(this)">📦 সব অপেক্ষমান অর্ডারে মোট কী কী লাগবে <span class="chev">▸</span></h3>
+    <div class="card-body collapsed"><div id="orders-pack"></div></div>
   </div>
 </div>
 
@@ -471,7 +506,7 @@ td{padding:7px 6px;color:#1a1a1a;border-bottom:1px solid #f5f5f5;vertical-align:
 // Cloudflare Worker proxy দিয়ে Google Sheets-এ data save/load করো
 const API = 'https://script.google.com/macros/s/AKfycbyENClgBhWyHtJHKh5AR1RVZp28xC12KEv28KqqCbDl0Ip3FsV_WWO2szkS-J50BX7M/exec';
 
-let products = [], sales = [], customers = [], payments = [], expenses = [], capital = [], targets = [], closedDays = [], wantedItems = [], buyList = [];
+let products = [], sales = [], customers = [], payments = [], expenses = [], capital = [], targets = [], closedDays = [], wantedItems = [], buyList = [], orders = [], appSettings = {};
 let selectedRating = 0;
 let currentFilter = 'all';
 let lastSale = null;
@@ -487,7 +522,7 @@ let pendingSaves = 0;
 function fetchPost(body){
   const ctrl = new AbortController();
   const t = setTimeout(()=>ctrl.abort(), 25000);
-  return fetch(API, { method:'POST', body: JSON.stringify(body), signal: ctrl.signal })
+  return fetch(API, { method:'POST', body: JSON.stringify(Object.assign({}, body, {key: getAdminKey()})), signal: ctrl.signal })
     .finally(()=>clearTimeout(t));
 }
 
@@ -515,7 +550,7 @@ async function apiPost(body){
     return true;
   }catch(e){
     offlineQueue.push(body); saveQueue(); updateSyncBadge();
-    showMsg('sync-msg','সার্ভারে সেভ করা যায়নি, ইন্টারনেট এলে আবার চেষ্টা হবে','error');
+    notifySaveFailed(e);
     return false;
   } finally {
     pendingSaves--;
@@ -537,7 +572,7 @@ async function apiPostRaw(body){
     return data;
   }catch(e){
     offlineQueue.push(body); saveQueue(); updateSyncBadge();
-    showMsg('sync-msg','সার্ভারে সেভ করা যায়নি, ইন্টারনেট এলে আবার চেষ্টা হবে','error');
+    notifySaveFailed(e);
     return null;
   } finally {
     pendingSaves--;
@@ -552,7 +587,7 @@ async function syncQueue(){
       const res = await fetchPost(body);
       const data = await res.json();
       if(data && data.error){ throw new Error(data.error); }
-    }catch(e){ offlineQueue.push(body); }
+    }catch(e){ offlineQueue.push(body); if(String(e&&e.message)==='unauthorized') noteUnauthorized(); }
   }
   saveQueue(); updateSyncBadge();
   if(offlineQueue.length===0){
@@ -572,6 +607,8 @@ function saveLocal(){
     localStorage.setItem('med_closedDays', JSON.stringify(closedDays));
     localStorage.setItem('med_wantedItems', JSON.stringify(wantedItems));
     localStorage.setItem('med_buyList', JSON.stringify(buyList));
+    localStorage.setItem('med_orders', JSON.stringify(orders));
+    localStorage.setItem('med_settings', JSON.stringify(appSettings));
   }catch(e){}
 }
 function loadLocal(){
@@ -586,6 +623,8 @@ function loadLocal(){
     closedDays = JSON.parse(localStorage.getItem('med_closedDays')||'[]');
     wantedItems = JSON.parse(localStorage.getItem('med_wantedItems')||'[]');
     buyList = JSON.parse(localStorage.getItem('med_buyList')||'[]');
+    orders = JSON.parse(localStorage.getItem('med_orders')||'[]');
+    appSettings = JSON.parse(localStorage.getItem('med_settings')||'{}');
   }catch(e){}
 }
 function updateSyncBadge(){
@@ -604,13 +643,12 @@ function buildUrl(params){
   const q = Object.entries(params).map(([k,v])=>
     k+'='+encodeURIComponent(typeof v==='object'?JSON.stringify(v):v)
   ).join('&');
-  return API+'?'+q+'&t='+Date.now();
+  return API+'?'+q+'&key='+encodeURIComponent(getAdminKey())+'&t='+Date.now();
 }
 
 async function apiGet(){
   try{
-    const res = await fetch(buildUrl({action:'getAll'}));
-    const data = await res.json();
+    const data = await fetchGetAll(false);
     products  = data.products  || [];
     sales     = data.sales     || [];
     customers = data.customers || [];
@@ -620,7 +658,7 @@ async function apiGet(){
     targets   = data.targets   || [];
     closedDays = data.closedDays || [];
     wantedItems = data.wantedItems || [];
-    buyList = data.buyList || []; applyPendingToState();
+    buyList = data.buyList || []; applyPendingToState(); applyOrdersFromServer(data);
     saveLocal();
   }catch(e){ loadLocal(); }
 }
@@ -639,14 +677,13 @@ async function init(){
   loadLocal();
   document.getElementById('exp-date').value = todayStr;
   document.getElementById('cap-date').value = todayStr;
-  updateSyncBadge(); renderStock(); renderWantedItems(); renderBuyList(); renderCustomerDropdown(); addSaleRow();
+  updateSyncBadge(); renderStock(); renderWantedItems(); renderBuyList(); renderCustomerDropdown(); addSaleRow(); updateOrderBadge();
 
   // ২. background-এ Google Sheets থেকে নতুন data আনো
   if(isOnline()){
     try{
       await syncQueue();
-      const res = await fetch(buildUrl({action:'getAll'}));
-      const data = await res.json();
+      const data = await fetchGetAll(true);
       // নিরাপত্তা: সার্ভারে যদি লোকালের চেয়ে কম প্রোডাক্ট দেখায় (নেটওয়ার্ক/সিঙ্ক সমস্যায়),
       // তাহলে লোকাল ডেটা ওভাররাইট কোরো না — এতে সদ্য যোগ করা এন্ট্রি হারানো থেকে বাঁচবে
       if(data.products && data.products.length >= products.length){
@@ -662,7 +699,7 @@ async function init(){
       targets   = data.targets   || targets;
       closedDays = data.closedDays || closedDays;
       wantedItems = data.wantedItems || wantedItems;
-      buyList = data.buyList || buyList; applyPendingToState();
+      buyList = data.buyList || buyList; applyPendingToState(); applyOrdersFromServer(data);
       saveLocal();
       renderStock(); renderCustomerDropdown();
       const activeTab = document.querySelector('.tab.active');
@@ -708,8 +745,7 @@ async function manualSync(){
   showMsg('sync-msg', 'সর্বশেষ ডেটা টেনে আনা হচ্ছে...', 'success');
   try{
     await syncQueue();
-    const res = await fetch(buildUrl({action:'getAll'}));
-    const data = await res.json();
+    const data = await fetchGetAll(true);
     // ম্যানুয়াল রিফ্রেশে সবসময় সার্ভারের ডেটাকেই সঠিক ধরা হয় (ব্যবহারকারী নিজে চেয়ে টেনেছেন)
     products  = data.products  || products;
     sales     = data.sales     || sales;
@@ -720,7 +756,7 @@ async function manualSync(){
     targets   = data.targets   || targets;
     closedDays = data.closedDays || closedDays;
     wantedItems = data.wantedItems || wantedItems;
-    buyList = data.buyList || buyList; applyPendingToState();
+    buyList = data.buyList || buyList; applyPendingToState(); applyOrdersFromServer(data);
     saveLocal();
     renderStock(); renderCustomerDropdown();
     const activeTab = document.querySelector('.tab.active');
@@ -756,6 +792,7 @@ function showTab(t, btn){
   if(t==='sale'){ renderCustomerDropdown(); renderTodaySales(); }
   if(t==='stock'){ renderStock(); renderWantedItems(); renderBuyList(); }
   if(t==='customer') renderCustomers();
+  if(t==='orders') renderOrders();
 }
 
 document.addEventListener('DOMContentLoaded',()=>{
@@ -1677,6 +1714,7 @@ async function recordSale(){
       }
     });
     sales.push(sale); lastSale=sale;
+    finalizePendingOrder(sale.id);
     ok = await apiPost({action:'addSale',sale});
     showMsg('sale-msg',
       !ok ? 'বিক্রয় তালিকায় যোগ হয়েছে, কিন্তু সার্ভারে পাঠাতে সমস্যা হয়েছে — ইন্টারনেট এলে অটো-সিঙ্ক হবে' :
@@ -2499,6 +2537,304 @@ function renderSalesHistory(){
     </div>`;
   }).join('');
 }
+
+// ================= 🔒 অ্যাডমিন পাসওয়ার্ড =================
+// সার্ভারে ADMIN_KEY বসানো থাকলে অ্যাপ প্রথমবার পাসওয়ার্ড চাইবে, তারপর এই ডিভাইসে মনে রাখবে।
+// (পাসওয়ার্ড কোডে/GitHub-এ থাকে না, শুধু আপনার ফোনের localStorage-এ থাকে)
+function getAdminKey(){ try{ return localStorage.getItem('adminKey')||''; }catch(e){ return ''; } }
+function askAdminKey(){
+  const k = prompt('🔒 অ্যাডমিন পাসওয়ার্ড দিন (Code.gs-এর ADMIN_KEY-তে যেটা বসিয়েছেন):','');
+  if(k && k.trim()){ localStorage.setItem('adminKey', k.trim()); return k.trim(); }
+  return '';
+}
+function noteUnauthorized(){
+  showMsg('sync-msg','🔒 অ্যাডমিন পাসওয়ার্ড ঠিক নেই — 🔄 বাটন চেপে সঠিক পাসওয়ার্ড দিন','error');
+}
+function notifySaveFailed(e){
+  if(String(e&&e.message)==='unauthorized'){ noteUnauthorized(); return; }
+  showMsg('sync-msg','সার্ভারে সেভ করা যায়নি, ইন্টারনেট এলে আবার চেষ্টা হবে','error');
+}
+// getAll টেনে আনে। পাসওয়ার্ড লাগলে (allowPrompt=true) একবার জিজ্ঞেস করে আবার চেষ্টা করে,
+// আর তারপর কিউতে জমে থাকা পেন্ডিং কাজগুলোও পাঠিয়ে দেয়
+async function fetchGetAll(allowPrompt){
+  let res = await fetch(buildUrl({action:'getAll'}));
+  let data = await res.json();
+  if(data && data.error==='unauthorized'){
+    if(!allowPrompt) throw new Error('unauthorized');
+    localStorage.removeItem('adminKey');
+    if(askAdminKey()){
+      res = await fetch(buildUrl({action:'getAll'}));
+      data = await res.json();
+      if(data && !data.error && offlineQueue.length){ syncQueue(); }
+    }
+  }
+  if(data && data.error) throw new Error(data.error);
+  return data;
+}
+
+// ================= 📥 কাস্টমারের অর্ডার =================
+let currentOrderFilter = 'new';
+const ST_NEW='নতুন', ST_CONF='কনফার্মড', ST_DONE='ডেলিভারি হয়েছে', ST_CANCEL='বাতিল';
+
+// কাস্টমারের লেখা সব টেক্সট বাইরে থেকে আসে — HTML-এ বসানোর আগে অবশ্যই escape করতে হয়
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function safeId(id){ return String(id).replace(/[^0-9A-Za-z_-]/g,''); }
+function phoneKey(p){ return String(p||'').replace(/[^0-9]/g,'').slice(-10); }
+function normName(s){ return String(s||'').toLowerCase().replace(/\s+/g,' ').trim(); }
+
+function findProductByName(name){
+  const n = normName(name); if(!n) return null;
+  const exact = products.find(p=>normName(p.name)===n);
+  if(exact) return exact;
+  const partial = products.filter(p=>normName(p.name).includes(n) || n.includes(normName(p.name)));
+  return partial.length===1 ? partial[0] : null; // একাধিক মিললে অনুমান করি না
+}
+
+function applyOrdersFromServer(data){
+  if(!data) return;
+  if(data.settings){ appSettings = data.settings; }
+  if(Array.isArray(data.orders)){
+    // যে অর্ডারের স্ট্যাটাস বদল এখনো কিউতে পেন্ডিং (সার্ভারে যায়নি), তার লোকাল ভার্সনটাই রাখি
+    const queued = {};
+    offlineQueue.forEach(b=>{ if(b && b.action==='saveOrder' && b.order) queued[String(b.order.id)] = b.order; });
+    orders = data.orders.map(o=> queued[String(o.id)] || o);
+  }
+  updateOrderBadge();
+  const t = document.getElementById('tab-orders');
+  if(t && t.classList.contains('active')) renderOrders();
+}
+
+function updateOrderBadge(){
+  const b = document.getElementById('orders-badge'); if(!b) return;
+  const n = orders.filter(o=>o.status===ST_NEW).length;
+  b.textContent = n; b.style.display = n>0 ? 'inline-block' : 'none';
+}
+
+function getOrderLink(){
+  const code = appSettings && appSettings.orderCode;
+  if(!code) return '';
+  const base = new URL('order.html', location.href).href.split('?')[0].split('#')[0];
+  return base + '?c=' + encodeURIComponent(code);
+}
+function copyOrderLink(){
+  const link = getOrderLink(); if(!link) return;
+  const done = ()=>showMsg('orders-msg','লিংক কপি হয়েছে ✓','success');
+  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(link).then(done).catch(()=>fallbackCopy()); }
+  else fallbackCopy();
+  function fallbackCopy(){ const i=document.getElementById('order-link-input'); i.select(); try{ document.execCommand('copy'); done(); }catch(e){} }
+}
+function shareOrderLinkWhatsApp(){
+  const link = getOrderLink(); if(!link) return;
+  const shop = (appSettings && appSettings.shopName) || 'আমাদের';
+  const msg = `${shop} থেকে অর্ডার করতে এই লিংকে যান, প্রোডাক্ট বেছে অর্ডার পাঠান:\n${link}`;
+  window.open('https://wa.me/?text='+encodeURIComponent(msg), '_blank');
+}
+
+function setOrderFilter(f, btn){
+  currentOrderFilter = f;
+  ['of-new','of-conf','of-done','of-all'].forEach(id=>{ const el=document.getElementById(id); if(el) el.classList.remove('active'); });
+  btn.classList.add('active');
+  renderOrders();
+}
+
+function timeAgoBn(iso){
+  const t = new Date(iso).getTime(); if(isNaN(t)) return '';
+  const m = Math.floor((Date.now()-t)/60000);
+  if(m<1) return 'এইমাত্র';
+  if(m<60) return m+' মিনিট আগে';
+  const h = Math.floor(m/60); if(h<24) return h+' ঘণ্টা আগে';
+  return Math.floor(h/24)+' দিন আগে';
+}
+
+function stockBadge(it){
+  const p = findProductByName(it.name);
+  if(!p) return '<span style="color:#c62828;font-size:11px">তালিকায় নেই ⚠️</span>';
+  if(p.qty >= it.qty) return `<span style="color:#2e7d32;font-size:11px">স্টক ${esc(p.qty)} ✓</span>`;
+  if(p.qty > 0) return `<span style="color:#e65100;font-size:11px">স্টক ${esc(p.qty)} (কম)</span>`;
+  return '<span style="color:#c62828;font-size:11px">স্টক নেই ❌</span>';
+}
+
+function renderOrders(){
+  // লিংক কার্ড
+  const la = document.getElementById('order-link-area');
+  if(la){
+    const link = getOrderLink();
+    la.innerHTML = link
+      ? `<input id="order-link-input" readonly value="${esc(link)}" onclick="this.select()" style="font-size:12px">
+         <div style="display:flex;gap:8px"><button class="sm blue" style="flex:1;padding:9px" onclick="copyOrderLink()">📋 কপি করুন</button>
+         <button class="sm" style="flex:1;padding:9px;background:#e8f5e9;color:#2e7d32;border-color:#a5d6a7" onclick="shareOrderLinkWhatsApp()">📱 WhatsApp-এ পাঠান</button></div>`
+      : `<div style="font-size:12px;color:#c62828;background:#fff8f8;border:1px solid #ffcdd2;border-radius:8px;padding:10px">লিংক এখনো তৈরি হয়নি। Code.gs-এ ADMIN_KEY ও ORDER_CODE বসিয়ে নতুন ভার্সন Deploy করুন, তারপর 🔄 চাপুন।</div>`;
+  }
+
+  const el = document.getElementById('orders-list'); if(!el) return;
+  const f = currentOrderFilter;
+  let list = orders;
+  if(f==='new')  list = orders.filter(o=>o.status===ST_NEW);
+  if(f==='conf') list = orders.filter(o=>o.status===ST_CONF);
+  if(f==='done') list = orders.filter(o=>o.status===ST_DONE);
+  list = [...list].sort((a,b)=> new Date(b.date)-new Date(a.date));
+  if(!list.length){ el.innerHTML = `<div class="empty">${f==='new'?'কোনো নতুন অর্ডার নেই 👍':'কোনো অর্ডার নেই'}</div>`; renderOrdersPack(); return; }
+
+  el.innerHTML = list.map(o=>{
+    const id = safeId(o.id);
+    const cls = o.status===ST_NEW?'st-new':o.status===ST_DONE?'st-done':o.status===ST_CANCEL?'st-cancel':'';
+    const chip = o.status===ST_NEW?'new':o.status===ST_CONF?'conf':o.status===ST_DONE?'done':'cancel';
+    const ph = String(o.phone||'').replace(/[^0-9]/g,'');
+    const matched = o.customerId && customers.some(c=>String(c.id)===String(o.customerId));
+    const items = (o.items||[]).map(it=>`<div class="ord-item"><span>${esc(it.name)} <b>× ${esc(it.qty)}</b>${it.unit?' '+esc(it.unit):''}</span>${stockBadge(it)}</div>`).join('');
+    const open = o.status===ST_NEW || o.status===ST_CONF;
+    return `<div class="order-card ${cls}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+        <div style="min-width:0"><div style="font-weight:700;font-size:14px">#${esc(o.orderNo)} • ${esc(o.customerName)}</div>
+          <div style="font-size:12px;color:#888">${esc(timeAgoBn(o.date))}${matched?' • <span style="color:#2e7d32">✅ আপনার কাস্টমার</span>':' • <span style="color:#e65100">🆕 নতুন নাম</span>'}</div></div>
+        <span class="chip ${chip}">${esc(o.status)}</span>
+      </div>
+      <div style="font-size:13px;margin:6px 0">📞 <a href="tel:${esc(ph)}" style="color:#1565c0">${esc(o.phone)}</a>${o.address?` &nbsp;📍 ${esc(o.address)}`:''}</div>
+      <div style="margin:6px 0">${items}</div>
+      ${o.deliveryDate?`<div style="font-size:12px;color:#1565c0">📅 কবে লাগবে: ${esc(normDay(o.deliveryDate))}</div>`:''}
+      ${o.note?`<div style="font-size:12px;color:#666;margin-top:4px">📝 ${esc(o.note)}</div>`:''}
+      <div class="ord-actions">
+        ${open?`<button class="sm" style="background:#e8f5e9;color:#2e7d32;border-color:#a5d6a7;font-weight:600" onclick="deliverOrder('${id}')">🚚 ডেলিভারি করো</button>`:''}
+        ${o.status===ST_NEW?`<button class="sm blue" onclick="setOrderStatus('${id}','${ST_CONF}')">✔ কনফার্ম</button>`:''}
+        <button class="sm" onclick="whatsappOrder('${id}')">💬 WhatsApp</button>
+        ${open?`<button class="sm" style="background:#fff3e0;color:#e65100;border-color:#ffcc80" onclick="orderToBuyList('${id}')">🛍️ কেনার তালিকায়</button>`:''}
+        ${open?`<button class="sm danger" onclick="setOrderStatus('${id}','${ST_CANCEL}',true)">✕ বাতিল</button>`:''}
+        ${!open?`<button class="sm" onclick="setOrderStatus('${id}','${ST_NEW}')">↩️ আবার নতুন করো</button>`:''}
+      </div></div>`;
+  }).join('');
+  renderOrdersPack();
+}
+
+// সব অপেক্ষমান (নতুন + কনফার্মড) অর্ডার মিলিয়ে প্রোডাক্ট অনুযায়ী মোট কত লাগবে
+function renderOrdersPack(){
+  const el = document.getElementById('orders-pack'); if(!el) return;
+  const open = orders.filter(o=>o.status===ST_NEW || o.status===ST_CONF);
+  if(!open.length){ el.innerHTML='<div class="empty">কোনো অপেক্ষমান অর্ডার নেই</div>'; return; }
+  const agg = {};
+  open.forEach(o=>(o.items||[]).forEach(it=>{
+    const k = normName(it.name);
+    if(!agg[k]) agg[k] = {name:it.name, qty:0, unit:it.unit||'', shops:new Set()};
+    agg[k].qty += Number(it.qty)||0; agg[k].shops.add(o.customerName);
+  }));
+  el.innerHTML = '<table><thead><tr><th>প্রোডাক্ট</th><th style="text-align:center">মোট</th><th>স্টক</th></tr></thead><tbody>'+
+    Object.values(agg).sort((a,b)=>b.qty-a.qty).map(a=>{
+      const p = findProductByName(a.name);
+      const st = !p ? '<span style="color:#c62828">তালিকায় নেই</span>' : p.qty>=a.qty ? `<span style="color:#2e7d32">${esc(p.qty)} ✓</span>` : `<span style="color:#c62828">${esc(p.qty)} (কম)</span>`;
+      return `<tr><td><strong>${esc(a.name)}</strong><br><span style="font-size:11px;color:#888">${[...a.shops].map(esc).join(', ')}</span></td><td style="text-align:center;font-weight:700">${esc(a.qty)}<br><span style="font-size:11px;color:#888;font-weight:400">${esc(a.unit)}</span></td><td style="font-size:12px">${st}</td></tr>`;
+    }).join('')+'</tbody></table>';
+}
+
+async function setOrderStatus(id, status, confirmFirst){
+  const o = orders.find(x=>safeId(x.id)===id); if(!o) return;
+  if(confirmFirst && !confirm(`অর্ডার #${o.orderNo} (${o.customerName}) বাতিল করবেন?`)) return;
+  o.status = status;
+  if(status===ST_NEW){ o.saleId=''; }
+  saveLocal(); updateOrderBadge(); renderOrders();
+  await apiPost({action:'saveOrder', order:o});
+}
+
+function whatsappOrder(id){
+  const o = orders.find(x=>safeId(x.id)===id); if(!o) return;
+  let ph = String(o.phone||'').replace(/[^0-9]/g,'');
+  if(ph.startsWith('0')) ph = '88'+ph; else if(ph.length===10) ph = '880'+ph;
+  const lines = (o.items||[]).map(it=>`• ${it.name} — ${it.qty}${it.unit?' '+it.unit:''}`).join('\n');
+  const msg = `আসসালামু আলাইকুম, আপনার অর্ডার #${o.orderNo} পেয়েছি:\n${lines}\n\nআমরা শীঘ্রই পৌঁছে দেব। ধন্যবাদ।`;
+  window.open(`https://wa.me/${ph}?text=${encodeURIComponent(msg)}`, '_blank');
+}
+
+// যে প্রোডাক্ট স্টকে নেই বা কম আছে, শুধু সেগুলো পাইকারি কেনার তালিকায় তোলে
+function orderToBuyList(id){
+  const o = orders.find(x=>safeId(x.id)===id); if(!o) return;
+  let added = 0;
+  (o.items||[]).forEach((it,i)=>{
+    const p = findProductByName(it.name);
+    const have = p ? p.qty : 0;
+    if(p && have >= it.qty) return;
+    if(buyList.find(b=>!b.checked && normName(b.productName)===normName(p?p.name:it.name))) return;
+    const need = Math.max(1, it.qty - Math.max(0,have));
+    const item = {id:Date.now()+i, productName:p?p.name:it.name, qty:String(need), note:`অর্ডার #${o.orderNo} — ${o.customerName}`, checked:false, date:new Date().toISOString()};
+    buyList.push(item); added++;
+    apiPost({action:'saveBuyItem', item});
+  });
+  saveLocal(); renderBuyList();
+  showMsg('orders-msg', added ? `${added}টা প্রোডাক্ট কেনার তালিকায় যোগ হয়েছে ✓` : 'সব প্রোডাক্টই স্টকে আছে বা আগে থেকেই তালিকায় আছে', 'success');
+}
+
+// "ডেলিভারি করো": অর্ডারের প্রোডাক্টগুলো বিক্রয় ফর্মে ভরে দেয়। দাম/পরিমাণ বদলানো যায়।
+// বিক্রয় সেভ হলে অর্ডারটা নিজে থেকে "ডেলিভারি হয়েছে" হয়ে যায়।
+function deliverOrder(id){
+  const o = orders.find(x=>safeId(x.id)===id); if(!o) return;
+
+  // কাস্টমার খুঁজে বের করা: অর্ডারে যুক্ত id → মোবাইল নম্বর মিলিয়ে → না পেলে নতুন যোগ করার প্রস্তাব
+  let cust = o.customerId ? customers.find(c=>String(c.id)===String(o.customerId)) : null;
+  if(!cust && phoneKey(o.phone)) cust = customers.find(c=>phoneKey(c.phone)===phoneKey(o.phone));
+  if(!cust){
+    if(confirm(`"${o.customerName}" আপনার কাস্টমার তালিকায় নেই।\nনতুন কাস্টমার হিসেবে যোগ করে নেবেন?\n\n(না চাপলে শুধু নাম দিয়ে নগদ বিক্রয় হবে — বাকি রাখা যাবে না)`)){
+      cust = {id:Date.now(), name:o.customerName, phone:o.phone, address:o.address||'', note:'অনলাইন অর্ডার থেকে', createdAt:new Date().toISOString()};
+      customers.push(cust); saveLocal(); apiPost({action:'saveCustomer', customer:cust}); renderCustomerDropdown();
+    }
+  }
+
+  const tabBtn = document.querySelector('.tab[data-tab="sale"]');
+  showTab('sale', tabBtn);
+  if(cust){ selectCustomer(cust.id, cust.name); }
+  else {
+    document.getElementById('s-customer').value=''; document.getElementById('s-customer-search').value='';
+    document.getElementById('s-buyer').value = o.customerName; updateSalePrevDue();
+  }
+
+  const wrap = document.getElementById('sale-items'); wrap.innerHTML='';
+  const missing=[], short=[];
+  (o.items||[]).forEach(it=>{
+    const p = findProductByName(it.name);
+    if(!p){ missing.push(it.name); return; }
+    addSaleRow();
+    const rows = wrap.querySelectorAll('.sale-item'); const row = rows[rows.length-1];
+    row.querySelector('.s-search').value = p.name;
+    row.querySelector('.s-prod-id').value = p.id;
+    row.querySelector('.s-price').value = p.sellPrice;
+    row.querySelector('.s-qty').value = it.qty;
+    row.querySelector('.s-info').textContent = `ক্রয়মূল্য: ${fmt(p.buyPrice)} | বিক্রয়মূল্য: ${fmt(p.sellPrice)} | স্টক: ${p.qty} ${p.unit}`;
+    if(p.qty < it.qty) short.push(`${p.name} (আছে ${p.qty}, চেয়েছে ${it.qty})`);
+  });
+  if(!wrap.querySelector('.sale-item')) addSaleRow();
+  calcSaleTotal();
+
+  window.pendingOrderId = safeId(o.id);
+  const banner = document.getElementById('order-banner');
+  banner.style.display = 'block';
+  banner.innerHTML = `📥 অর্ডার <b>#${esc(o.orderNo)}</b> (${esc(o.customerName)}) থেকে ভরা হয়েছে — দাম/পরিমাণ দেখে নিয়ে সেভ করুন।
+    ${missing.length?`<div style="color:#c62828;margin-top:4px">⚠️ তালিকায় না পাওয়ায় বাদ: ${missing.map(esc).join(', ')} — হাতে যোগ করুন</div>`:''}
+    ${short.length?`<div style="color:#e65100;margin-top:4px">⚠️ স্টক কম: ${short.map(esc).join('; ')} — পরিমাণ কমাতে হবে</div>`:''}
+    <div style="margin-top:6px"><button class="sm" onclick="clearPendingOrder()">✕ অর্ডার থেকে ভরা বাতিল</button></div>`;
+}
+
+function clearPendingOrder(){
+  window.pendingOrderId = null;
+  const b = document.getElementById('order-banner'); if(b){ b.style.display='none'; b.innerHTML=''; }
+}
+
+// বিক্রয় সংরক্ষণ হওয়ার পর কল হয়: অর্ডারটাকে "ডেলিভারি হয়েছে" করে বিক্রয়ের সাথে জুড়ে দেয়
+function finalizePendingOrder(saleId){
+  const id = window.pendingOrderId; if(!id) return;
+  const o = orders.find(x=>safeId(x.id)===id);
+  clearPendingOrder();
+  if(!o) return;
+  o.status = ST_DONE; o.saleId = String(saleId);
+  saveLocal(); updateOrderBadge();
+  apiPost({action:'saveOrder', order:o});
+}
+
+// নতুন অর্ডার এলো কিনা — অ্যাপ খোলা থাকলে প্রতি ২ মিনিটে চুপচাপ দেখে (শুধু অর্ডার, বাকি ডেটায় হাত দেয় না)
+async function refreshOrdersOnly(){
+  if(document.visibilityState!=='visible' || !isOnline() || offlineQueue.length>0 || pendingSaves>0) return;
+  try{
+    const res = await fetch(buildUrl({action:'getOrders'}));
+    const data = await res.json();
+    if(data && !data.error) applyOrdersFromServer(data);
+  }catch(e){}
+}
+setInterval(refreshOrdersOnly, 120000);
 
 init();
 </script>
