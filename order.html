@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>অর্ডার করুন</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:sans-serif;background:#f5f5f5;color:#1a1a1a;font-size:15px;padding-bottom:30px}
+.wrap{max-width:520px;margin:0 auto;padding:0 12px}
+header{background:#1565c0;color:#fff;padding:18px 14px;margin:0 -12px 12px;text-align:center}
+header h1{font-size:18px;font-weight:700}
+header p{font-size:12px;opacity:.9;margin-top:4px}
+.card{background:#fff;border-radius:10px;padding:14px;margin-bottom:12px;border:1px solid #e0e0e0}
+.card h2{font-size:14px;font-weight:600;color:#444;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #f0f0f0}
+label{display:block;font-size:12px;color:#666;margin:2px 0 4px}
+input,textarea{width:100%;padding:11px 12px;font-size:15px;border:1px solid #ddd;border-radius:8px;background:#fafafa;color:#1a1a1a;margin-bottom:10px;-webkit-appearance:none;font-family:inherit}
+textarea{resize:vertical;min-height:64px}
+input:focus,textarea:focus{outline:none;border-color:#1565c0;background:#fff}
+.req{color:#c62828}
+.hp{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}
+button{font-family:inherit;cursor:pointer}
+.primary{width:100%;padding:14px;font-size:16px;font-weight:700;border:none;border-radius:10px;background:#2e7d32;color:#fff}
+.primary:disabled{background:#9e9e9e}
+.sm{padding:6px 12px;font-size:13px;border:1px solid #ddd;border-radius:8px;background:#fff;color:#555}
+.msg{padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;font-weight:500}
+.msg.error{background:#ffebee;color:#c62828}
+.msg.info{background:#e3f2fd;color:#1565c0}
+.msg.ok{background:#e8f5e9;color:#2e7d32}
+.dd{position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #ddd;border-radius:8px;z-index:20;max-height:260px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.12);margin-top:-6px}
+.dd div{padding:11px 12px;border-bottom:1px solid #f3f3f3;font-size:14px;cursor:pointer}
+.dd div small{color:#888;margin-left:6px}
+.dd .add{color:#1565c0;font-weight:600;background:#f3f8ff}
+.line{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid #f3f3f3}
+.line .nm{flex:1;min-width:0;font-size:14px;font-weight:600;word-break:break-word}
+.line .nm small{display:block;color:#888;font-weight:400;font-size:11px}
+.step{display:flex;align-items:center;gap:4px}
+.step button{width:34px;height:34px;border:1px solid #ccc;border-radius:8px;background:#fff;font-size:18px;color:#1565c0}
+.step input{width:56px;text-align:center;margin:0;padding:8px 4px}
+.rm{border:none;background:none;color:#c62828;font-size:20px;padding:4px 8px}
+.empty{text-align:center;color:#aaa;font-size:13px;padding:18px 8px}
+.done{text-align:center;padding:24px 14px}
+.done .big{font-size:46px}
+.done h2{border:none;font-size:18px;color:#2e7d32;margin:8px 0}
+.sum{text-align:left;background:#f9f9f9;border-radius:8px;padding:10px 12px;margin:14px 0;font-size:13px}
+.sum div{padding:3px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1 id="shop">💊 অর্ডার করুন</h1>
+    <p>প্রোডাক্ট বেছে অর্ডার পাঠান — আমরা আপনাকে ফোনে কনফার্ম করব</p>
+  </header>
+
+  <div id="status"></div>
+
+  <div id="form-area" style="display:none">
+    <div class="card">
+      <h2>👤 আপনার তথ্য</h2>
+      <label>ফার্মেসি/দোকানের নাম <span class="req">*</span></label>
+      <input id="f-name" placeholder="যেমন: আলিয়া ফার্মেসি" maxlength="80" autocomplete="organization">
+      <label>মোবাইল নম্বর <span class="req">*</span></label>
+      <input id="f-phone" type="tel" inputmode="tel" placeholder="01XXXXXXXXX" maxlength="20" autocomplete="tel">
+      <label>ঠিকানা/এলাকা</label>
+      <input id="f-address" placeholder="যেমন: মিরপুর-১০" maxlength="200" autocomplete="street-address">
+      <label>কবে লাগবে? (ঐচ্ছিক)</label>
+      <input id="f-date" type="date">
+    </div>
+
+    <div class="card">
+      <h2>💊 কী কী লাগবে</h2>
+      <div style="position:relative">
+        <input id="f-search" placeholder="🔍 প্রোডাক্টের নাম লিখে খুঁজুন..." autocomplete="off">
+        <div id="dd" class="dd" style="display:none"></div>
+      </div>
+      <div style="font-size:11px;color:#888;margin:-4px 0 6px">তালিকায় না পেলে নাম লিখে "➕ যোগ করুন" চাপুন।</div>
+      <div id="cart"></div>
+    </div>
+
+    <div class="card">
+      <h2>📝 আর কিছু বলার থাকলে</h2>
+      <textarea id="f-note" placeholder="যেমন: সকালের মধ্যে দিলে ভালো হয়" maxlength="500"></textarea>
+    </div>
+
+    <input class="hp" id="f-hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+    <div id="submit-msg"></div>
+    <button class="primary" id="submit-btn" onclick="submitOrder()">✅ অর্ডার পাঠান</button>
+  </div>
+
+  <div id="done-area" style="display:none"></div>
+</div>
+
+<script>
+// ⚙️ এটা আপনার Apps Script Web App-এর URL (index.html-এ যেটা আছে হুবহু সেটাই)
+const API = 'https://script.google.com/macros/s/AKfycbyENClgBhWyHtJHKh5AR1RVZp28xC12KEv28KqqCbDl0Ip3FsV_WWO2szkS-J50BX7M/exec';
+
+const CODE = new URLSearchParams(location.search).get('c') || '';
+let catalog = [];
+let cart = [];            // [{name, qty, unit}]
+let clientId = '';
+let sending = false;
+
+const $ = id => document.getElementById(id);
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function norm(s){ return String(s||'').toLowerCase().replace(/\s+/g,' ').trim(); }
+function newId(){ return 'o-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10); }
+function setStatus(html, cls){ $('status').innerHTML = html ? `<div class="msg ${cls||'info'}">${html}</div>` : ''; }
+
+function withTimeout(url, opts){
+  const ctrl = new AbortController();
+  const t = setTimeout(()=>ctrl.abort(), 25000);
+  return fetch(url, Object.assign({}, opts||{}, {signal: ctrl.signal})).finally(()=>clearTimeout(t));
+}
+
+// ---- খসড়া সংরক্ষণ: ভুলে পেজ রিফ্রেশ হলেও কার্ট হারাবে না ----
+function saveDraft(){
+  try{
+    localStorage.setItem('order_draft', JSON.stringify({
+      cart, note:$('f-note').value, date:$('f-date').value, clientId
+    }));
+    localStorage.setItem('order_cust', JSON.stringify({
+      name:$('f-name').value, phone:$('f-phone').value, address:$('f-address').value
+    }));
+  }catch(e){}
+}
+function loadDraft(){
+  try{
+    const c = JSON.parse(localStorage.getItem('order_cust')||'null');
+    if(c){ $('f-name').value=c.name||''; $('f-phone').value=c.phone||''; $('f-address').value=c.address||''; }
+    const d = JSON.parse(localStorage.getItem('order_draft')||'null');
+    if(d){ cart=Array.isArray(d.cart)?d.cart:[]; $('f-note').value=d.note||''; $('f-date').value=d.date||''; clientId=d.clientId||''; }
+  }catch(e){}
+  if(!clientId) clientId = newId();
+}
+
+// ---- ক্যাটালগ ----
+async function loadCatalog(){
+  if(!CODE){ setStatus('এই লিংকটি সঠিক নয়। যিনি লিংক পাঠিয়েছেন তাঁর কাছ থেকে পূর্ণ লিংকটি আবার নিন।','error'); return; }
+  setStatus('⏳ প্রোডাক্টের তালিকা আনা হচ্ছে...','info');
+  try{
+    const res = await withTimeout(`${API}?action=getCatalog&code=${encodeURIComponent(CODE)}&t=${Date.now()}`);
+    const data = await res.json();
+    if(data.error==='bad_code'){ setStatus('এই লিংকটি আর কাজ করছে না। যিনি লিংক পাঠিয়েছেন তাঁর কাছ থেকে নতুন লিংক নিন।','error'); return; }
+    if(data.error==='setup_needed'){ setStatus('অর্ডার সিস্টেম এখনো চালু হয়নি। কিছুক্ষণ পর চেষ্টা করুন।','error'); return; }
+    if(data.error) throw new Error(data.error);
+    catalog = data.products || [];
+    try{ localStorage.setItem('order_catalog', JSON.stringify(catalog)); }catch(e){}
+    if(data.shopName) $('shop').textContent = '💊 ' + data.shopName;
+    setStatus('');
+    showForm();
+  }catch(e){
+    // নেট দুর্বল হলে আগের দেখা তালিকা দিয়ে চালিয়ে যাওয়া যায়
+    try{ catalog = JSON.parse(localStorage.getItem('order_catalog')||'[]'); }catch(_){ catalog=[]; }
+    if(catalog.length){
+      setStatus('⚠️ নেট দুর্বল — আগের দেখা প্রোডাক্টের তালিকা দেখানো হচ্ছে।','info');
+      showForm();
+    } else {
+      setStatus('তালিকা আনা যায়নি — ইন্টারনেট দুর্বল। <button class="sm" onclick="loadCatalog()" style="margin-left:6px">আবার চেষ্টা করুন</button>','error');
+    }
+  }
+}
+function showForm(){ $('form-area').style.display='block'; loadDraft(); renderCart(); }
+
+// ---- প্রোডাক্ট খোঁজা ও যোগ ----
+function renderDropdown(){
+  const q = norm($('f-search').value);
+  const dd = $('dd');
+  if(!q){ dd.style.display='none'; return; }
+  const matches = catalog.filter(p=>norm(p.name).includes(q)).slice(0,30);
+  const exact = catalog.some(p=>norm(p.name)===q);
+  let html = matches.map((p,i)=>`<div onmousedown="pickProduct(${i})" data-i="${i}">${esc(p.name)}${p.unit?`<small>${esc(p.unit)}</small>`:''}</div>`).join('');
+  if(!exact) html += `<div class="add" onmousedown="addCustom()">➕ "${esc($('f-search').value.trim())}" যোগ করুন</div>`;
+  dd.innerHTML = html;
+  dd.style.display = 'block';
+  dd._matches = matches;
+}
+function pickProduct(i){
+  const p = ($('dd')._matches||[])[i]; if(!p) return;
+  addToCart(p.name, p.unit);
+}
+function addCustom(){
+  const name = $('f-search').value.trim();
+  if(name) addToCart(name, '');
+}
+function addToCart(name, unit){
+  const key = norm(name);
+  const ex = cart.find(c=>norm(c.name)===key);
+  if(ex) ex.qty = Math.min(100000, ex.qty+1); else cart.push({name:String(name).slice(0,100), qty:1, unit:unit||''});
+  $('f-search').value=''; $('dd').style.display='none';
+  renderCart(); saveDraft();
+}
+function renderCart(){
+  const el = $('cart');
+  if(!cart.length){ el.innerHTML='<div class="empty">এখনো কোনো প্রোডাক্ট বাছা হয়নি</div>'; return; }
+  el.innerHTML = cart.map((c,i)=>`
+    <div class="line">
+      <div class="nm">${esc(c.name)}${c.unit?`<small>${esc(c.unit)}</small>`:''}</div>
+      <div class="step">
+        <button onclick="chg(${i},-1)" aria-label="কমান">−</button>
+        <input type="number" inputmode="numeric" min="1" value="${c.qty}" onchange="setQty(${i},this.value)">
+        <button onclick="chg(${i},1)" aria-label="বাড়ান">+</button>
+      </div>
+      <button class="rm" onclick="rmItem(${i})" aria-label="মুছুন">✕</button>
+    </div>`).join('');
+}
+function chg(i,d){ cart[i].qty = Math.max(1, Math.min(100000, (parseInt(cart[i].qty)||1)+d)); renderCart(); saveDraft(); }
+function setQty(i,v){ const n=parseInt(v); cart[i].qty = (n>=1 && n<=100000) ? n : 1; renderCart(); saveDraft(); }
+function rmItem(i){ cart.splice(i,1); renderCart(); saveDraft(); }
+
+// ---- অর্ডার পাঠানো ----
+async function submitOrder(){
+  if(sending) return;
+  const name = $('f-name').value.trim();
+  const phone = $('f-phone').value.trim();
+  const digits = phone.replace(/[^0-9]/g,'');
+  const box = $('submit-msg');
+  const fail = t => { box.innerHTML = `<div class="msg error">${esc(t)}</div>`; };
+  box.innerHTML='';
+  if(name.length<2){ fail('আপনার ফার্মেসি/দোকানের নাম লিখুন'); $('f-name').focus(); return; }
+  if(digits.length<10 || digits.length>15){ fail('সঠিক মোবাইল নম্বর দিন'); $('f-phone').focus(); return; }
+  if(!cart.length){ fail('কমপক্ষে একটি প্রোডাক্ট বেছে নিন'); $('f-search').focus(); return; }
+
+  sending = true;
+  const btn = $('submit-btn'); btn.disabled = true; btn.textContent = '⏳ পাঠানো হচ্ছে...';
+  const order = {
+    clientId, name, phone, address:$('f-address').value.trim(), note:$('f-note').value.trim(),
+    deliveryDate:$('f-date').value || '', items:cart.map(c=>({name:c.name, qty:c.qty, unit:c.unit})),
+    website:$('f-hp').value
+  };
+  try{
+    const res = await withTimeout(API, {method:'POST', body:JSON.stringify({action:'submitOrder', code:CODE, order})});
+    const data = await res.json();
+    if(data.error){
+      if(data.error==='bad_code') fail('এই লিংকটি আর কাজ করছে না। নতুন লিংক নিন।');
+      else if(data.error==='setup_needed') fail('অর্ডার সিস্টেম এখনো চালু হয়নি।');
+      else fail(data.error);
+      return;
+    }
+    showDone(order, data.orderNo);
+  }catch(e){
+    // সার্ভারে অর্ডার পৌঁছে গিয়ে থাকলেও সমস্যা নেই — একই clientId আবার গেলে সার্ভার ডুপ্লিকেট ধরে ফেলে
+    fail('নেটওয়ার্ক দুর্বল, অর্ডার যায়নি বলে মনে হচ্ছে। আবার "অর্ডার পাঠান" চাপুন — অর্ডার দুইবার যাবে না।');
+  } finally {
+    sending = false; btn.disabled = false; btn.textContent = '✅ অর্ডার পাঠান';
+  }
+}
+
+function showDone(order, orderNo){
+  try{ localStorage.removeItem('order_draft'); }catch(e){}
+  const lines = order.items.map(i=>`<div>• ${esc(i.name)} — <b>${esc(i.qty)}</b>${i.unit?' '+esc(i.unit):''}</div>`).join('');
+  $('form-area').style.display='none';
+  const d = $('done-area');
+  d.style.display='block';
+  d.innerHTML = `<div class="card done">
+    <div class="big">✅</div>
+    <h2>অর্ডার পাঠানো হয়েছে!</h2>
+    ${orderNo?`<div style="font-size:13px;color:#555">আপনার অর্ডার নম্বর: <b>#${esc(orderNo)}</b></div>`:''}
+    <div class="sum">${lines}${order.deliveryDate?`<div style="margin-top:6px;color:#555">📅 কবে লাগবে: ${esc(order.deliveryDate)}</div>`:''}</div>
+    <div style="font-size:13px;color:#555;margin-bottom:14px">আমরা শীঘ্রই ${esc(order.phone)} নম্বরে যোগাযোগ করে কনফার্ম করব। ধন্যবাদ!</div>
+    <button class="sm" onclick="newOrder()" style="padding:10px 18px">➕ আরেকটি অর্ডার দিন</button>
+  </div>`;
+  window.scrollTo(0,0);
+}
+function newOrder(){
+  cart = []; clientId = newId();
+  $('f-note').value=''; $('f-date').value=''; $('submit-msg').innerHTML='';
+  $('done-area').style.display='none'; $('form-area').style.display='block';
+  renderCart(); saveDraft();
+}
+
+// ---- ইভেন্ট ----
+document.addEventListener('DOMContentLoaded', ()=>{
+  const today = new Date(); today.setHours(0,0,0,0);
+  const iso = d => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  $('f-date').min = iso(today);
+  $('f-search').addEventListener('input', renderDropdown);
+  $('f-search').addEventListener('focus', renderDropdown);
+  $('f-search').addEventListener('blur', ()=>setTimeout(()=>{ $('dd').style.display='none'; }, 200));
+  $('f-search').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); const m=($('dd')._matches||[]); if(m.length===1) pickProduct(0); else addCustom(); } });
+  ['f-name','f-phone','f-address','f-note','f-date'].forEach(id=>$(id).addEventListener('input', saveDraft));
+  loadCatalog();
+});
+</script>
+</body>
+</html>
