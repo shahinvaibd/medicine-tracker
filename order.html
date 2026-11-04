@@ -6,7 +6,7 @@
 <title>অর্ডার করুন</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:sans-serif;background:#f5f5f5;color:#1a1a1a;font-size:15px;padding-bottom:30px}
+body{font-family:sans-serif;background:#f5f5f5;color:#1a1a1a;font-size:15px;padding-bottom:70px}
 .wrap{max-width:520px;margin:0 auto;padding:0 12px}
 header{background:#1565c0;color:#fff;padding:18px 14px;margin:0 -12px 12px;text-align:center}
 header h1{font-size:18px;font-weight:700}
@@ -44,6 +44,20 @@ button{font-family:inherit;cursor:pointer}
 .done h2{border:none;font-size:18px;color:#2e7d32;margin:8px 0}
 .sum{text-align:left;background:#f9f9f9;border-radius:8px;padding:10px 12px;margin:14px 0;font-size:13px}
 .sum div{padding:3px 0}
+.letters{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px}
+.letters button{min-width:30px;height:30px;border:1px solid #cfd8dc;border-radius:6px;background:#fff;color:#1565c0;font-size:13px;font-weight:600;padding:0 6px}
+.plist{position:relative;max-height:58vh;overflow-y:auto;-webkit-overflow-scrolling:touch;border:1px solid #eee;border-radius:8px}
+.lh{position:sticky;top:0;background:#eceff1;color:#455a64;font-size:12px;font-weight:700;padding:4px 10px;z-index:1}
+.prow{display:flex;align-items:center;gap:8px;padding:9px 10px;border-bottom:1px solid #f3f3f3}
+.prow.in{background:#f1f8e9}
+.prow .pn{flex:1;min-width:0;font-size:14px;word-break:break-word}
+.prow .pn small{color:#888;margin-left:6px;font-size:11px}
+.addbtn{padding:6px 14px;border:1px solid #1565c0;border-radius:8px;background:#fff;color:#1565c0;font-weight:600;font-size:13px;white-space:nowrap}
+.mini{display:flex;align-items:center;gap:6px}
+.mini button{width:30px;height:30px;border:1px solid #ccc;border-radius:8px;background:#fff;font-size:17px;color:#1565c0}
+.mini b{min-width:22px;text-align:center}
+.reorder{width:100%;padding:11px;margin-bottom:10px;border:1px dashed #1565c0;border-radius:8px;background:#f3f8ff;color:#1565c0;font-weight:600;font-size:14px}
+#cartbar{display:none;position:fixed;left:0;right:0;bottom:0;background:#2e7d32;color:#fff;text-align:center;padding:13px;font-weight:700;font-size:14px;z-index:30;cursor:pointer}
 </style>
 </head>
 <body>
@@ -70,12 +84,20 @@ button{font-family:inherit;cursor:pointer}
 
     <div class="card">
       <h2>💊 কী কী লাগবে</h2>
+      <div id="reorder"></div>
       <div style="position:relative">
         <input id="f-search" placeholder="🔍 প্রোডাক্টের নাম লিখে খুঁজুন..." autocomplete="off">
         <div id="dd" class="dd" style="display:none"></div>
       </div>
       <div style="font-size:11px;color:#888;margin:-4px 0 6px">তালিকায় না পেলে নাম লিখে "➕ যোগ করুন" চাপুন।</div>
       <div id="cart"></div>
+    </div>
+
+    <div class="card">
+      <h2>📋 সব প্রোডাক্টের তালিকা <span id="plist-count" style="font-weight:400;color:#888;font-size:12px"></span></h2>
+      <div style="font-size:11px;color:#888;margin-bottom:8px">অক্ষরে চাপলে ওই অক্ষরের প্রোডাক্টে চলে যাবে। "+ যোগ" চাপলেই কার্টে উঠবে।</div>
+      <div id="letters" class="letters"></div>
+      <div id="plist" class="plist"></div>
     </div>
 
     <div class="card">
@@ -91,6 +113,8 @@ button{font-family:inherit;cursor:pointer}
   <div id="done-area" style="display:none"></div>
 </div>
 
+<div id="cartbar" onclick="goSubmit()"></div>
+
 <script>
 // ⚙️ এটা আপনার Apps Script Web App-এর URL (index.html-এ যেটা আছে হুবহু সেটাই)
 const API = 'https://script.google.com/macros/s/AKfycbyENClgBhWyHtJHKh5AR1RVZp28xC12KEv28KqqCbDl0Ip3FsV_WWO2szkS-J50BX7M/exec';
@@ -103,6 +127,11 @@ let sending = false;
 
 const $ = id => document.getElementById(id);
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// স্পেস, হাইফেন, চিহ্ন ও বড়-ছোট হাতের অক্ষর বাদ দিয়ে তুলনার চাবি: "Napa-500 mg" = "napa500mg"
+// (বাংলা অক্ষরের স্বরচিহ্ন \p{M} রাখা হয়েছে, নাহলে বাংলা নাম ভেঙে যায়)
+let STRIP;
+try{ STRIP = new RegExp('[^\\p{L}\\p{M}\\p{N}]+','gu'); }catch(e){ STRIP = /[\s\-_.,\/()]+/g; }
+function skey(s){ return String(s||'').toLowerCase().replace(STRIP,''); }
 function norm(s){ return String(s||'').toLowerCase().replace(/\s+/g,' ').trim(); }
 function newId(){ return 'o-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10); }
 function setStatus(html, cls){ $('status').innerHTML = html ? `<div class="msg ${cls||'info'}">${html}</div>` : ''; }
@@ -160,17 +189,22 @@ async function loadCatalog(){
     }
   }
 }
-function showForm(){ $('form-area').style.display='block'; loadDraft(); renderCart(); }
+function showForm(){ $('form-area').style.display='block'; loadDraft(); renderReorder(); renderCart(); }
 
 // ---- প্রোডাক্ট খোঁজা ও যোগ ----
 function renderDropdown(){
-  const q = norm($('f-search').value);
+  const raw = $('f-search').value;
+  const q = skey(raw);
   const dd = $('dd');
   if(!q){ dd.style.display='none'; return; }
-  const matches = catalog.filter(p=>norm(p.name).includes(q)).slice(0,30);
-  const exact = catalog.some(p=>norm(p.name)===q);
+  // যেগুলো লেখা অক্ষর দিয়ে শুরু হয় সেগুলো আগে, তারপর যেগুলোর ভেতরে আছে
+  const matches = catalog.filter(p=>skey(p.name).includes(q)).sort((a,b)=>{
+    const as = skey(a.name).startsWith(q)?0:1, bs = skey(b.name).startsWith(q)?0:1;
+    return (as-bs) || a.name.localeCompare(b.name);
+  }).slice(0,30);
+  const exact = catalog.some(p=>skey(p.name)===q);
   let html = matches.map((p,i)=>`<div onmousedown="pickProduct(${i})" data-i="${i}">${esc(p.name)}${p.unit?`<small>${esc(p.unit)}</small>`:''}</div>`).join('');
-  if(!exact) html += `<div class="add" onmousedown="addCustom()">➕ "${esc($('f-search').value.trim())}" যোগ করুন</div>`;
+  if(!exact) html += `<div class="add" onmousedown="addCustom()">➕ "${esc(raw.trim())}" যোগ করুন</div>`;
   dd.innerHTML = html;
   dd.style.display = 'block';
   dd._matches = matches;
@@ -184,14 +218,15 @@ function addCustom(){
   if(name) addToCart(name, '');
 }
 function addToCart(name, unit){
-  const key = norm(name);
-  const ex = cart.find(c=>norm(c.name)===key);
+  const key = skey(name);
+  const ex = cart.find(c=>skey(c.name)===key);
   if(ex) ex.qty = Math.min(100000, ex.qty+1); else cart.push({name:String(name).slice(0,100), qty:1, unit:unit||''});
   $('f-search').value=''; $('dd').style.display='none';
   renderCart(); saveDraft();
 }
 function renderCart(){
   const el = $('cart');
+  renderPList(); updateCartBar();
   if(!cart.length){ el.innerHTML='<div class="empty">এখনো কোনো প্রোডাক্ট বাছা হয়নি</div>'; return; }
   el.innerHTML = cart.map((c,i)=>`
     <div class="line">
@@ -204,6 +239,88 @@ function renderCart(){
       <button class="rm" onclick="rmItem(${i})" aria-label="মুছুন">✕</button>
     </div>`).join('');
 }
+// ---- সব প্রোডাক্টের তালিকা (A–Z), প্রতিটার পাশে + যোগ ----
+function groupLetter(name){
+  const ch = String(name||'').trim().charAt(0);
+  if(!ch || /[0-9]/.test(ch)) return '#';
+  return ch.toUpperCase();
+}
+function renderPList(){
+  const box = $('plist'); if(!box) return;
+  const top = box.scrollTop || 0;
+  const sorted = catalog.map((p,i)=>({p,i})).sort((a,b)=>a.p.name.localeCompare(b.p.name));
+  const letters = []; let cur = null, html = '';
+  sorted.forEach(({p,i})=>{
+    const L = groupLetter(p.name);
+    if(L!==cur){ cur = L; letters.push(L); html += `<div class="lh" id="lh-${letters.length-1}">${esc(L)}</div>`; }
+    const inCart = cart.find(c=>skey(c.name)===skey(p.name));
+    html += `<div class="prow${inCart?' in':''}"><div class="pn">${esc(p.name)}${p.unit?`<small>${esc(p.unit)}</small>`:''}</div>`+
+      (inCart
+        ? `<div class="mini"><button onclick="listChg(${i},-1)" aria-label="কমান">−</button><b>${esc(inCart.qty)}</b><button onclick="listChg(${i},1)" aria-label="বাড়ান">+</button></div>`
+        : `<button class="addbtn" onclick="listChg(${i},1)">+ যোগ</button>`)+`</div>`;
+  });
+  box.innerHTML = html || '<div class="empty">কোনো প্রোডাক্ট নেই</div>';
+  box.scrollTop = top;
+  $('letters').innerHTML = letters.map((L,k)=>`<button onclick="jumpLetter(${k})">${esc(L)}</button>`).join('');
+  const cnt = $('plist-count'); if(cnt) cnt.textContent = catalog.length ? `(${catalog.length}টা)` : '';
+}
+function jumpLetter(k){
+  const box = $('plist'), h = document.getElementById('lh-'+k);
+  if(box && h && typeof h.offsetTop==='number') box.scrollTop = h.offsetTop;
+}
+// তালিকার + / − : কার্টে না থাকলে যোগ, থাকলে পরিমাণ বাড়ে/কমে, ১ থেকে কমালে কার্ট থেকে সরে যায়
+function listChg(i,d){
+  const p = catalog[i]; if(!p) return;
+  const k = skey(p.name);
+  const idx = cart.findIndex(c=>skey(c.name)===k);
+  if(idx<0){ if(d>0) cart.push({name:p.name, qty:1, unit:p.unit||''}); }
+  else {
+    const q = (parseInt(cart[idx].qty)||1)+d;
+    if(q<1) cart.splice(idx,1); else cart[idx].qty = Math.min(100000,q);
+  }
+  renderCart(); saveDraft();
+}
+
+// ---- আগের অর্ডারের মতো করা (শুধু এই ফোনেই মনে রাখা হয়, সার্ভারে কারো তথ্য খোঁজা হয় না) ----
+function getLastOrder(){
+  try{
+    const a = JSON.parse(localStorage.getItem('order_last')||'[]');
+    return Array.isArray(a) ? a.filter(x=>x && x.name && Number(x.qty)>=1) : [];
+  }catch(e){ return []; }
+}
+function renderReorder(){
+  const el = $('reorder'); if(!el) return;
+  const last = getLastOrder();
+  if(!last.length){ el.innerHTML=''; return; }
+  const preview = last.slice(0,3).map(i=>esc(i.name)+' ×'+esc(i.qty)).join(', ') + (last.length>3?' …':'');
+  el.innerHTML = `<button class="reorder" onclick="reorderLast()">🔁 আগের অর্ডারের মতো করুন (${last.length}টা প্রোডাক্ট)<br><small style="font-weight:400;color:#607d8b">${preview}</small></button>`;
+}
+function reorderLast(){
+  let added = 0;
+  getLastOrder().forEach(it=>{
+    const cat = catalog.find(p=>skey(p.name)===skey(it.name));   // এখনকার তালিকার নাম/একক ব্যবহার করি
+    const name = cat ? cat.name : it.name;
+    if(cart.some(c=>skey(c.name)===skey(name))) return;
+    cart.push({name:String(name).slice(0,100), qty:Math.max(1,Math.min(100000,parseInt(it.qty)||1)), unit:cat?cat.unit:(it.unit||'')});
+    added++;
+  });
+  renderCart(); saveDraft();
+  $('submit-msg').innerHTML = added
+    ? `<div class="msg ok">${added}টা প্রোডাক্ট যোগ হয়েছে — পরিমাণ দেখে নিন</div>`
+    : `<div class="msg info">সবগুলোই আগে থেকে কার্টে আছে</div>`;
+}
+
+// ---- নিচের সবুজ বার: কার্টে কয়টা আছে, চাপলে সরাসরি "অর্ডার পাঠান" বাটনে নিয়ে যায় ----
+function updateCartBar(){
+  const b = $('cartbar'); if(!b) return;
+  const n = cart.length;
+  if(n>0 && $('form-area').style.display==='block'){
+    b.style.display='block';
+    b.textContent = `🛒 ${n}টা প্রোডাক্ট বাছা হয়েছে — অর্ডার পাঠাতে এখানে চাপুন ↓`;
+  } else { b.style.display='none'; }
+}
+function goSubmit(){ const el = $('submit-btn'); if(el && el.scrollIntoView) el.scrollIntoView({behavior:'smooth', block:'center'}); }
+
 function chg(i,d){ cart[i].qty = Math.max(1, Math.min(100000, (parseInt(cart[i].qty)||1)+d)); renderCart(); saveDraft(); }
 function setQty(i,v){ const n=parseInt(v); cart[i].qty = (n>=1 && n<=100000) ? n : 1; renderCart(); saveDraft(); }
 function rmItem(i){ cart.splice(i,1); renderCart(); saveDraft(); }
@@ -247,9 +364,10 @@ async function submitOrder(){
 }
 
 function showDone(order, orderNo){
-  try{ localStorage.removeItem('order_draft'); }catch(e){}
+  try{ localStorage.removeItem('order_draft'); localStorage.setItem('order_last', JSON.stringify(order.items.map(i=>({name:i.name,qty:i.qty,unit:i.unit})))); }catch(e){}
   const lines = order.items.map(i=>`<div>• ${esc(i.name)} — <b>${esc(i.qty)}</b>${i.unit?' '+esc(i.unit):''}</div>`).join('');
   $('form-area').style.display='none';
+  updateCartBar();
   const d = $('done-area');
   d.style.display='block';
   d.innerHTML = `<div class="card done">
@@ -266,7 +384,7 @@ function newOrder(){
   cart = []; clientId = newId();
   $('f-note').value=''; $('f-date').value=''; $('submit-msg').innerHTML='';
   $('done-area').style.display='none'; $('form-area').style.display='block';
-  renderCart(); saveDraft();
+  renderReorder(); renderCart(); saveDraft();
 }
 
 // ---- ইভেন্ট ----
