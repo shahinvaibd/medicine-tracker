@@ -249,24 +249,34 @@ function renderPList(){
   const box = $('plist'); if(!box) return;
   const top = box.scrollTop || 0;
   const sorted = catalog.map((p,i)=>({p,i})).sort((a,b)=>a.p.name.localeCompare(b.p.name));
+  // প্রতিটা অক্ষরের প্রোডাক্ট একটা গ্রুপ-বাক্সে (lg-N) রাখা হয়, শিরোনাম (lh) তার ভেতরে আটকে থাকে (sticky)।
+  // অক্ষরে চাপলে বাক্সের জায়গায় যাই, শিরোনামের জায়গায় নয় — কারণ sticky শিরোনামের offsetTop বলে
+  // "এখন যেখানে আটকে আছে", আসল জায়গা না; তাই আগের অক্ষরে (C, E) ফিরে যাওয়া কাজ করছিল না
   const letters = []; let cur = null, html = '';
   sorted.forEach(({p,i})=>{
     const L = groupLetter(p.name);
-    if(L!==cur){ cur = L; letters.push(L); html += `<div class="lh" id="lh-${letters.length-1}">${esc(L)}</div>`; }
+    if(L!==cur){
+      if(cur!==null) html += `</div>`;
+      cur = L; letters.push(L);
+      html += `<div class="grp" id="lg-${letters.length-1}"><div class="lh">${esc(L)}</div>`;
+    }
     const inCart = cart.find(c=>skey(c.name)===skey(p.name));
     html += `<div class="prow${inCart?' in':''}"><div class="pn">${esc(p.name)}${p.unit?`<small>${esc(p.unit)}</small>`:''}</div>`+
       (inCart
         ? `<div class="mini"><button onclick="listChg(${i},-1)" aria-label="কমান">−</button><b>${esc(inCart.qty)}</b><button onclick="listChg(${i},1)" aria-label="বাড়ান">+</button></div>`
         : `<button class="addbtn" onclick="listChg(${i},1)">+ যোগ</button>`)+`</div>`;
   });
+  if(cur!==null) html += `</div>`;
   box.innerHTML = html || '<div class="empty">কোনো প্রোডাক্ট নেই</div>';
   box.scrollTop = top;
   $('letters').innerHTML = letters.map((L,k)=>`<button onclick="jumpLetter(${k})">${esc(L)}</button>`).join('');
   const cnt = $('plist-count'); if(cnt) cnt.textContent = catalog.length ? `(${catalog.length}টা)` : '';
 }
 function jumpLetter(k){
-  const box = $('plist'), h = document.getElementById('lh-'+k);
-  if(box && h && typeof h.offsetTop==='number') box.scrollTop = h.offsetTop;
+  const box = $('plist'), g = document.getElementById('lg-'+k);
+  if(!box || !g || typeof g.offsetTop!=='number') return;
+  if(typeof box.scrollTo==='function') box.scrollTo({top:g.offsetTop, behavior:'smooth'});
+  else box.scrollTop = g.offsetTop;
 }
 // তালিকার + / − : কার্টে না থাকলে যোগ, থাকলে পরিমাণ বাড়ে/কমে, ১ থেকে কমালে কার্ট থেকে সরে যায়
 function listChg(i,d){
